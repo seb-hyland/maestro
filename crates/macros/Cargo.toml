@@ -1,10 +1,10 @@
 [package]
-name = "shellcheck"
+name = "finalflow-macros"
 version = "0.1.0"
 edition = "2024"
 
 [lib]
-path = "src/checker.rs"
+path = "src/macros.rs"
 proc-macro = true
 
 [dependencies]

@@ -7,23 +7,19 @@ use std::{
     path::Path,
     process::{Command, Stdio},
 };
-use syn::{Ident, LitStr, parse::Parse, parse_macro_input};
+use syn::{Ident, LitStr, parse::Parse, parse_macro_input, punctuated::Punctuated, token::Comma};
 
 struct ScriptDefinition {
     path_lit: LitStr,
-    env_vars: Vec<Ident>,
+    env_vars: Punctuated<Ident, Comma>,
 }
 
 impl Parse for ScriptDefinition {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let path_lit: LitStr = input.parse()?;
+        let _comma: Option<Comma> = input.parse().ok();
 
-        let mut env_vars = Vec::new();
-        while !input.is_empty() {
-            let next_var: Ident = input.parse()?;
-            env_vars.push(next_var);
-        }
-
+        let env_vars = Punctuated::parse_terminated(input)?;
         Ok(ScriptDefinition { path_lit, env_vars })
     }
 }

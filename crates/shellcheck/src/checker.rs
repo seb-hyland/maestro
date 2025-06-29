@@ -101,8 +101,20 @@ pub fn script(input: TokenStream) -> TokenStream {
     }
 
     let file_contents_lit = LitStr::new(&file_contents, path_lit.span());
+    let env_var_lits: Vec<LitStr> = env_vars
+        .iter()
+        .map(|ident| LitStr::new(&ident.to_string(), ident.span()))
+        .collect();
     quote! {
-        ::workflow::Script { contents: #file_contents_lit, runtime: ::workflow::Runtime::Local }
+        let env_vars: Vec<::workflow::EnvVar> = vec! [
+            #(
+                ::workflow::EnvVar(
+                    #env_var_lits,
+                    #env_vars.into()
+                )
+            ),*
+        ];
+        ::workflow::Script { contents: #file_contents_lit, env: env_vars, runtime: ::workflow::Runtime::Local }
     }
     .into()
 }

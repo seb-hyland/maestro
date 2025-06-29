@@ -1,5 +1,6 @@
 use proc_macro::{Span, TokenStream};
 use proc_macro_error::{abort, proc_macro_error};
+use quote::quote;
 use std::{
     fs,
     io::Write,
@@ -98,5 +99,10 @@ pub fn script(input: TokenStream) -> TokenStream {
             format!("The script has errors!\n{stderr}")
         }
     }
-    todo!()
+
+    let file_contents_lit = LitStr::new(&file_contents, path_lit.span());
+    quote! {
+        ::workflow::Script { contents: #file_contents_lit, runtime: ::workflow::Runtime::Local }
+    }
+    .into()
 }

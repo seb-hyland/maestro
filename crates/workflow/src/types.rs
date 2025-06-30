@@ -9,7 +9,6 @@ pub struct Workflow {
 pub struct Script {
     pub contents: &'static str,
     pub env: Vec<EnvVar>,
-    pub runtime: Runtime,
 }
 
 pub struct EnvVar(&'static str, EnvVarValue);
@@ -28,10 +27,7 @@ impl From<PathBuf> for EnvVarValue {
     }
 }
 
-pub enum Runtime {
-    Local,
-    Container(Container),
-}
-pub enum Container {
-    Apptainer(&'static str),
+pub struct ContainerWorkflow {
+    pub workflow: Workflow,
+    pub container: &'static str,
 }

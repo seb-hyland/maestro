@@ -1,4 +1,7 @@
-use crate::checker::{ScriptDefinition, run_shellcheck};
+use crate::{
+    checker::{ScriptDefinition, run_shellcheck},
+    container::check_manifest,
+};
 use proc_macro::{Span, TokenStream};
 use proc_macro_error::{abort, proc_macro_error};
 use quote::quote;
@@ -34,7 +37,7 @@ pub fn script(input: TokenStream) -> TokenStream {
             presented_contents.push_str(&script_injection);
         });
 
-    if let Err(e) = run_shellcheck(&presented_contents, Span::call_site()) {
+    if let Err(e) = run_shellcheck(&presented_contents) {
         abort! {
             Span::call_site(),
             e
@@ -60,9 +63,22 @@ pub fn script(input: TokenStream) -> TokenStream {
     .into()
 }
 
+/// Example usage:
+/// ```rust
+/// oci!("rust:alpine3.22")
+/// ```
 #[proc_macro]
 #[proc_macro_error]
-pub fn container(input: TokenStream) -> TokenStream {
+pub fn oci(input: TokenStream) -> TokenStream {
     let name_lit = parse_macro_input!(input as LitStr);
-    todo!()
+    if let Err(e) = check_manifest(&name_lit.value()) {
+        abort! {
+            Span::call_site(),
+            e
+        }
+    }
+    quote! {
+        #name_lit
+    }
+    .into()
 }

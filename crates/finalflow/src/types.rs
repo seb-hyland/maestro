@@ -56,7 +56,7 @@ pub struct PodmanWorkflow(Workflow, PodmanScript);
 
 // todo!: implement
 // ```rust
-//      with_apptainer(&self, impl Into<ApptainerScript>) -> ApptainerWorkflow
-//      with_podman(&self, impl Into<PodmanScript>) -> PodmanWorkflow
+//      using_apptainer(&self, impl Into<ApptainerScript>) -> ApptainerWorkflow
+//      using_podman(&self, impl Into<PodmanScript>) -> PodmanWorkflow
 // ```
 // for Workflow

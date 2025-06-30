@@ -76,7 +76,7 @@ pub fn oci(input: TokenStream) -> TokenStream {
         }
     }
     quote! {
-        #name_lit
+        ::finalflow::OCI(#name_lit)
     }
     .into()
 }
@@ -97,7 +97,7 @@ pub fn sif(input: TokenStream) -> TokenStream {
         }
     }
     quote! {
-        #name_lit
+        ::finalflow::SIF(#name_lit)
     }
     .into()
 }

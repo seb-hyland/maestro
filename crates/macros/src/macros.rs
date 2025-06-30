@@ -48,15 +48,15 @@ pub fn script(input: TokenStream) -> TokenStream {
         .map(|ident| LitStr::new(&ident.to_string(), ident.span()))
         .collect();
     quote! {
-        let env_vars: Vec<::workflow::EnvVar> = vec! [
+        let env_vars: Vec<::finalflow::EnvVar> = vec! [
             #(
-                ::workflow::EnvVar(
+                ::finalflow::EnvVar(
                     #env_var_lits,
                     #env_vars.into()
                 )
             ),*
         ];
-        ::workflow::Script { contents: #file_contents_lit, env: env_vars, runtime: ::workflow::Runtime::Local }
+        ::finalflow::Script { contents: #file_contents_lit, env: env_vars, runtime: ::finalflow::Runtime::Local }
     }
     .into()
 }

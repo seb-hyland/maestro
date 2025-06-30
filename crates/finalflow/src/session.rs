@@ -1,4 +1,13 @@
-use rand::seq::IndexedRandom;
+use std::{env, io, path::PathBuf};
+
+use rand::{
+    Rng,
+    distr::{
+        Distribution, Uniform,
+        uniform::{UniformChar, UniformSampler},
+    },
+    seq::IndexedRandom,
+};
 
 pub(crate) fn generate_session_id() -> String {
     let mut rng = rand::rng();
@@ -9,6 +18,20 @@ pub(crate) fn generate_session_id() -> String {
         .choose(&mut rng)
         .expect("ANIMALS should not be empty for session ID selection!");
     format!("{}-{}", selected_adj, selected_animal)
+}
+
+pub(crate) fn generate_hash() -> String {
+    let rng = rand::rng();
+    let letter_sample =
+        Uniform::new_inclusive('a', 'z').expect("Uniform character sampling should not fail!");
+    rng.sample_iter(letter_sample).take(8).collect()
+}
+
+pub(crate) fn gwd() -> Result<PathBuf, io::Error> {
+    match env::var("FASTFLOW_WORK") {
+        Ok(v) => Ok(PathBuf::from(v).join(".fastflow-work")),
+        Err(_) => env::current_dir(),
+    }
 }
 
 const ADJECTIVES: [&str; 100] = [

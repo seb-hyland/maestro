@@ -109,6 +109,9 @@ pub fn sif(input: TokenStream) -> TokenStream {
 #[proc_macro_error]
 pub fn workflow(_attributes: TokenStream, input: TokenStream) -> TokenStream {
     let mut input = parse_macro_input!(input as ItemFn);
+
+    const INPUTS_MSG: &str =
+        "#[workflow] annotated functions must only take String or PathBuf as input";
     let mut path_checks = input
         .sig
         .inputs
@@ -119,7 +122,7 @@ pub fn workflow(_attributes: TokenStream, input: TokenStream) -> TokenStream {
             } else if let FnArg::Receiver(v) = arg {
                 abort! {
                     v.span(),
-                    "Associated methods cannot be annotated with #[workflow]!"
+                    format!("Associated methods cannot be annotated with #[workflow]!\n{INPUTS_MSG}")
                 }
             } else {
                 None
@@ -142,7 +145,7 @@ pub fn workflow(_attributes: TokenStream, input: TokenStream) -> TokenStream {
                     .unwrap_or_else(|| {
                         abort! {
                             ty.span(),
-                            "Failed to parse input type!"
+                            "Empty input type!"
                         }
                     })
                     .ident
@@ -150,15 +153,12 @@ pub fn workflow(_attributes: TokenStream, input: TokenStream) -> TokenStream {
                 match type_ident.to_string().as_str() {
                     "PathBuf" => Some(name),
                     "String" => None,
-                    _ => abort!(
-                        ty.span(),
-                        "#[workflow] annotated functions must only take String or PathBuf as input"
-                    ),
+                    _ => abort!(ty.span(), INPUTS_MSG),
                 }
             }
             _ => abort! {
                 ty.span(),
-                "#[workflow] annotated functions must only take String or PathBuf as input"
+                INPUTS_MSG
             },
         })
         .map(|ident| -> Stmt {
@@ -169,6 +169,7 @@ pub fn workflow(_attributes: TokenStream, input: TokenStream) -> TokenStream {
             }
         })
         .collect::<Vec<_>>();
+    // Avoid "you should add an else block 🗣️🔥" error msg from the compiler
     path_checks.push(parse_quote! { (); });
     input.block.stmts.splice(0..0, path_checks);
 

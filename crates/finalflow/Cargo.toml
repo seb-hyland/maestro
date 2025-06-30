@@ -9,3 +9,4 @@ path = "src/types.rs"
 [dependencies]
 finalflow-macros = { path = "../macros" }
 eyre = "0.6.12"
+rand = "0.9.1"

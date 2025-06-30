@@ -1,7 +1,6 @@
 mod macros;
+mod session;
 
-use eyre::Report;
-use finalflow_macros::workflow;
 use std::path::PathBuf;
 
 pub struct Workflow {
@@ -67,4 +66,23 @@ pub struct PodmanWorkflow(Workflow, PodmanScript);
 pub enum WorkflowResult {
     Ok(Workflow),
     Err(PathBuf),
+}
+
+pub enum StagingMode {
+    Symlink,
+    Copy,
+}
+
+pub struct Config {
+    id: String,
+    staging: StagingMode,
+}
+
+impl Config {
+    fn default() -> Config {
+        Config {
+            id: session::generate_session_id(),
+            staging: StagingMode::Symlink,
+        }
+    }
 }

@@ -27,7 +27,36 @@ impl From<PathBuf> for EnvVarValue {
     }
 }
 
-pub struct ContainerWorkflow {
-    pub workflow: Workflow,
-    pub container: &'static str,
+pub struct SIF(&'static str);
+pub struct OCI(&'static str);
+pub struct ApptainerScript(&'static str);
+pub struct PodmanScript(&'static str);
+
+impl From<SIF> for ApptainerScript {
+    fn from(image: SIF) -> Self {
+        ApptainerScript(image.0)
+    }
 }
+impl From<OCI> for ApptainerScript {
+    fn from(image: OCI) -> Self {
+        ApptainerScript(image.0)
+    }
+}
+impl From<OCI> for PodmanScript {
+    fn from(image: OCI) -> Self {
+        PodmanScript(image.0)
+    }
+}
+
+pub trait ContainerWorkflow {
+    fn execute(self) -> Vec<PathBuf>;
+}
+pub struct ApptainerWorkflow(Workflow, ApptainerScript);
+pub struct PodmanWorkflow(Workflow, PodmanScript);
+
+// todo!: implement
+// ```rust
+//      with_apptainer(&self, impl Into<ApptainerScript>) -> ApptainerWorkflow
+//      with_podman(&self, impl Into<PodmanScript>) -> PodmanWorkflow
+// ```
+// for Workflow

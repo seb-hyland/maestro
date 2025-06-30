@@ -1,9 +1,8 @@
-use proc_macro::Span;
 use std::{
     io::Write,
     process::{Command, Stdio},
 };
-use syn::{Error, Ident, LitStr, parse::Parse, punctuated::Punctuated, token::Comma};
+use syn::{Ident, LitStr, parse::Parse, punctuated::Punctuated, token::Comma};
 
 pub(crate) struct ScriptDefinition {
     pub(crate) path_lit: LitStr,
@@ -34,7 +33,7 @@ pub(crate) fn run_shellcheck(input: &str) -> Result<(), String> {
         let stdin = child
             .stdin
             .as_mut()
-            .ok_or_else(|| "Failed to get input handle to script checker!")?;
+            .ok_or("Failed to get input handle to script checker!")?;
         stdin
             .write_all(input.as_bytes())
             .map_err(|e| format!("Failed to pass script contents into script checker!\n{e}"))?;

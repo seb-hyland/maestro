@@ -1,4 +1,7 @@
 mod macros;
+
+use eyre::Report;
+use finalflow_macros::workflow;
 use std::path::PathBuf;
 
 pub struct Workflow {
@@ -60,3 +63,8 @@ pub struct PodmanWorkflow(Workflow, PodmanScript);
 //      using_podman(&self, impl Into<PodmanScript>) -> PodmanWorkflow
 // ```
 // for Workflow
+
+pub enum WorkflowResult {
+    Ok(Workflow),
+    Err(PathBuf),
+}

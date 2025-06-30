@@ -4,7 +4,10 @@ use proc_macro::{Span, TokenStream};
 use proc_macro_error::{abort, proc_macro_error};
 use quote::quote;
 use std::{fs, path::Path};
-use syn::{LitStr, parse_macro_input};
+use syn::{
+    FnArg, ItemFn, LitStr, Pat, ReturnType, Stmt, Type, parse_macro_input, parse_quote,
+    spanned::Spanned,
+};
 
 mod checker;
 mod container;
@@ -90,7 +93,7 @@ pub fn oci(input: TokenStream) -> TokenStream {
 pub fn sif(input: TokenStream) -> TokenStream {
     let name_lit = parse_macro_input!(input as LitStr);
     let name = name_lit.value();
-    if let Err(e) = container::verify_sif(&name.as_ref()) {
+    if let Err(e) = container::verify_sif(&name) {
         abort! {
             Span::call_site(),
             e
@@ -98,6 +101,113 @@ pub fn sif(input: TokenStream) -> TokenStream {
     }
     quote! {
         ::finalflow::SIF(#name_lit)
+    }
+    .into()
+}
+
+#[proc_macro_attribute]
+#[proc_macro_error]
+pub fn workflow(_attributes: TokenStream, input: TokenStream) -> TokenStream {
+    let mut input = parse_macro_input!(input as ItemFn);
+    let mut path_checks = input
+        .sig
+        .inputs
+        .iter()
+        .filter_map(|arg| {
+            if let FnArg::Typed(v) = arg {
+                Some(v)
+            } else if let FnArg::Receiver(v) = arg {
+                abort! {
+                    v.span(),
+                    "Associated methods cannot be annotated with #[workflow]!"
+                }
+            } else {
+                None
+            }
+        })
+        .map(|arg| (&*arg.ty, &*arg.pat))
+        .filter_map(|(ty, pat)| match ty {
+            Type::Path(type_path) => {
+                let name = match pat {
+                    Pat::Ident(v) => v.ident.clone(),
+                    _ => abort! {
+                        pat.span(),
+                        "Non-ident argument pattern detected!"
+                    },
+                };
+                let type_ident = type_path
+                    .path
+                    .segments
+                    .last()
+                    .unwrap_or_else(|| {
+                        abort! {
+                            ty.span(),
+                            "Failed to parse input type!"
+                        }
+                    })
+                    .ident
+                    .clone();
+                match type_ident.to_string().as_str() {
+                    "PathBuf" => Some(name),
+                    "String" => None,
+                    _ => abort!(
+                        ty.span(),
+                        "#[workflow] annotated functions must only take String or PathBuf as input"
+                    ),
+                }
+            }
+            _ => abort! {
+                ty.span(),
+                "#[workflow] annotated functions must only take String or PathBuf as input"
+            },
+        })
+        .map(|ident| -> Stmt {
+            parse_quote! {
+                if !#ident.exists() {
+                    return ::finalflow::WorkflowResult::Err(#ident);
+                }
+            }
+        })
+        .collect::<Vec<_>>();
+    path_checks.push(parse_quote! { (); });
+    input.block.stmts.splice(0..0, path_checks);
+
+    const RETURN_MSG: &str = "#[workflow] functions must return finalflow::WorkflowResult";
+    match &input.sig.output {
+        ReturnType::Type(_, ty) => match ty.as_ref() {
+            Type::Path(path) => {
+                if path
+                    .path
+                    .segments
+                    .last()
+                    .unwrap_or_else(|| {
+                        abort! {
+                            ty.span(),
+                            format!("Empty return type!\n{RETURN_MSG}")
+                        }
+                    })
+                    .ident
+                    != "WorkflowResult"
+                {
+                    abort! {
+                        ty.span(),
+                        RETURN_MSG
+                    }
+                }
+            }
+            _ => abort! {
+                ty.span(),
+                RETURN_MSG
+            },
+        },
+        _ => abort! {
+            input.sig.output.span(),
+            RETURN_MSG
+        },
+    };
+
+    quote! {
+        #input
     }
     .into()
 }

@@ -7,3 +7,5 @@ edition = "2024"
 path = "src/types.rs"
 
 [dependencies]
+finalflow-macros = { path = "../macros" }
+eyre = "0.6.12"

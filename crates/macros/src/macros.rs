@@ -1,7 +1,5 @@
-use crate::{
-    checker::{ScriptDefinition, run_shellcheck},
-    container::check_manifest,
-};
+use crate::checker::ScriptDefinition;
+
 use proc_macro::{Span, TokenStream};
 use proc_macro_error::{abort, proc_macro_error};
 use quote::quote;
@@ -37,7 +35,7 @@ pub fn script(input: TokenStream) -> TokenStream {
             presented_contents.push_str(&script_injection);
         });
 
-    if let Err(e) = run_shellcheck(&presented_contents) {
+    if let Err(e) = checker::run_shellcheck(&presented_contents) {
         abort! {
             Span::call_site(),
             e
@@ -71,7 +69,28 @@ pub fn script(input: TokenStream) -> TokenStream {
 #[proc_macro_error]
 pub fn oci(input: TokenStream) -> TokenStream {
     let name_lit = parse_macro_input!(input as LitStr);
-    if let Err(e) = check_manifest(&name_lit.value()) {
+    if let Err(e) = container::check_manifest(&name_lit.value()) {
+        abort! {
+            Span::call_site(),
+            e
+        }
+    }
+    quote! {
+        #name_lit
+    }
+    .into()
+}
+
+/// Example usage:
+/// ```rust
+/// sif!("rust:alpine3.22")
+/// ```
+#[proc_macro]
+#[proc_macro_error]
+pub fn sif(input: TokenStream) -> TokenStream {
+    let name_lit = parse_macro_input!(input as LitStr);
+    let name = name_lit.value();
+    if let Err(e) = container::verify_sif(&name.as_ref()) {
         abort! {
             Span::call_site(),
             e

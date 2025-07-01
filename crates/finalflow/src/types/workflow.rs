@@ -18,7 +18,7 @@ pub struct Script {
     pub env: Vec<EnvVar>,
 }
 
-pub struct EnvVar(&'static str, EnvVarValue);
+pub struct EnvVar(pub &'static str, pub EnvVarValue);
 
 pub enum EnvVarValue {
     Param(String),
@@ -29,6 +29,11 @@ impl From<String> for EnvVarValue {
         Self::Param(s)
     }
 }
+impl From<&str> for EnvVarValue {
+    fn from(s: &str) -> Self {
+        Self::Param(s.to_string())
+    }
+}
 impl From<PathBuf> for EnvVarValue {
     fn from(p: PathBuf) -> Self {
         Self::File(p)
@@ -37,6 +42,8 @@ impl From<PathBuf> for EnvVarValue {
 
 pub type WorkflowResult = Result<Workflow, PathBuf>;
 pub type ExecutionResult = Result<Vec<PathBuf>, ExecutionError>;
+
+#[derive(Debug)]
 pub enum ExecutionError {
     DirectoryError,
     WriteError,
@@ -47,7 +54,7 @@ pub enum ExecutionError {
 impl Workflow {
     const SCRIPT_NAME: &str = "script.sh";
 
-    fn new(cmd: Script, outputs: Vec<PathBuf>) -> WorkflowResult {
+    pub fn new(cmd: Script, outputs: Vec<PathBuf>) -> WorkflowResult {
         Ok(Workflow { cmd, outputs })
     }
 
@@ -62,7 +69,7 @@ impl Workflow {
 
         let mut hashed_workdir = workdir.join(hash);
         // For rare case where hashes are generated identically multiple times
-        // Use bounded iterator; it is basically impossible for this to occur multiple times
+        // Use bounded iterator; it is almost impossible for this to occur multiple times
         for _ in 0..2 {
             let hash = generate_hash();
             hashed_workdir = workdir.join(hash);
@@ -93,7 +100,7 @@ impl Workflow {
         Ok(hashed_workdir)
     }
 
-    fn execute(mut self) -> ExecutionResult {
+    pub fn execute(mut self) -> ExecutionResult {
         let workdir = Self::prep_workdir(&mut self)?;
         let script = workdir.join(Self::SCRIPT_NAME);
         let Workflow { cmd, outputs } = self;
@@ -107,6 +114,7 @@ impl Workflow {
             .collect();
         let cmd = Command::new(script)
             .envs(vars)
+            .current_dir(&workdir)
             .output()
             .map_err(|_| ExecutionError::ProcessError)?;
         if !cmd.status.success() {
@@ -119,7 +127,10 @@ impl Workflow {
             .filter(|p| !p.exists())
             .collect();
         match output_checks.is_empty() {
-            true => Ok(outputs),
+            true => {
+                let absolute_outputs = outputs.iter().map(|p| workdir.join(p)).collect();
+                Ok(absolute_outputs)
+            }
             false => Err(ExecutionError::OutputsNotFound(output_checks)),
         }
     }

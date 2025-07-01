@@ -1,13 +1,6 @@
 use std::{env, io, path::PathBuf};
 
-use rand::{
-    Rng,
-    distr::{
-        Distribution, Uniform,
-        uniform::{UniformChar, UniformSampler},
-    },
-    seq::IndexedRandom,
-};
+use rand::{Rng, distr::Uniform, seq::IndexedRandom};
 
 pub(crate) fn generate_session_id() -> String {
     let mut rng = rand::rng();
@@ -28,9 +21,9 @@ pub(crate) fn generate_hash() -> String {
 }
 
 pub(crate) fn gwd() -> Result<PathBuf, io::Error> {
-    match env::var("FASTFLOW_WORK") {
-        Ok(v) => Ok(PathBuf::from(v).join(".fastflow-work")),
-        Err(_) => env::current_dir(),
+    match env::var("FINALFLOW_WORK") {
+        Ok(v) => Ok(PathBuf::from(v).join(".finalflow-work")),
+        Err(_) => env::current_dir().map(|p| p.join(".finalflow-work")),
     }
 }
 

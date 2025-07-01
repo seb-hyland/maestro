@@ -3,7 +3,7 @@ use crate::checker::ScriptDefinition;
 use proc_macro::{Span, TokenStream};
 use proc_macro_error::{abort, proc_macro_error};
 use quote::quote;
-use std::{fs, path::Path};
+use std::{env, fs, path::Path};
 use syn::{
     FnArg, ItemFn, LitStr, Pat, ReturnType, Stmt, Type, parse_macro_input, parse_quote,
     spanned::Spanned,
@@ -18,7 +18,19 @@ pub fn script(input: TokenStream) -> TokenStream {
     let ScriptDefinition { path_lit, env_vars } = parse_macro_input!(input as ScriptDefinition);
 
     let path_str = path_lit.value();
-    let path: &Path = path_str.as_ref();
+    let path_maybe_stub: &Path = path_str.as_ref();
+    let path = if path_maybe_stub.is_absolute() {
+        path_maybe_stub.to_path_buf()
+    } else {
+        env::current_dir()
+            .unwrap_or_else(|e| {
+                abort! {
+                    path_lit.span(),
+                    format!("Could not determine working directory!\n{e}")
+                }
+            })
+            .join(path_maybe_stub)
+    };
     let file_contents = fs::read_to_string(path).unwrap_or_else(|e| {
         abort! {
             path_lit.span(),
@@ -38,9 +50,11 @@ pub fn script(input: TokenStream) -> TokenStream {
             presented_contents.push_str(&script_injection);
         });
 
-    if let Err(e) = checker::run_shellcheck(&presented_contents) {
+    if let Err((msg, e)) = checker::run_shellcheck(&presented_contents) {
         abort! {
-            Span::call_site(),
+            path_lit.span(),
+            "{} {}",
+            msg,
             e
         }
     }
@@ -50,17 +64,17 @@ pub fn script(input: TokenStream) -> TokenStream {
         .iter()
         .map(|ident| LitStr::new(&ident.to_string(), ident.span()))
         .collect();
-    quote! {
-        let env_vars: Vec<::finalflow::EnvVar> = vec! [
+    quote! {{
+        let env_vars: Vec<::finalflow::prelude::EnvVar> = vec! [
             #(
-                ::finalflow::EnvVar(
+                ::finalflow::prelude::EnvVar(
                     #env_var_lits,
                     #env_vars.into()
                 )
             ),*
         ];
-        ::finalflow::Script { contents: #file_contents_lit, env: env_vars, runtime: ::finalflow::Runtime::Local }
-    }
+        ::finalflow::prelude::Script { contents: #file_contents_lit, env: env_vars }
+    }}
     .into()
 }
 
@@ -164,7 +178,7 @@ pub fn workflow(_attributes: TokenStream, input: TokenStream) -> TokenStream {
         .map(|ident| -> Stmt {
             parse_quote! {
                 if !#ident.exists() {
-                    return ::finalflow::WorkflowResult::Err(#ident);
+                    return ::finalflow::prelude::WorkflowResult::Err(#ident);
                 }
             }
         })

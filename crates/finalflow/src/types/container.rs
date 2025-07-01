@@ -1,8 +1,8 @@
 use crate::types::workflow::Workflow;
 use std::path::PathBuf;
 
-pub struct Sif(&'static str);
-pub struct Oci(&'static str);
+pub struct Sif(pub &'static str);
+pub struct Oci(pub &'static str);
 pub struct ApptainerScript(&'static str);
 pub struct PodmanScript(&'static str);
 

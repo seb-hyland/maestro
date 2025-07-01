@@ -84,7 +84,7 @@ pub fn oci(input: TokenStream) -> TokenStream {
         }
     }
     quote! {
-        ::finalflow::OCI(#name_lit)
+        ::finalflow::prelude::Oci(#name_lit)
     }
     .into()
 }

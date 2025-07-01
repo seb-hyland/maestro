@@ -1,1 +1,5 @@
-pub use crate::types::workflow::{EnvVar, Script, Workflow};
+pub use crate::{
+    paths,
+    types::workflow::{EnvVar, Script, Workflow},
+};
+pub use finalflow_macros::{script, workflow};

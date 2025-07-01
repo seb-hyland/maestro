@@ -3,7 +3,7 @@ use crate::checker::ScriptDefinition;
 use proc_macro::{Span, TokenStream};
 use proc_macro_error::{abort, proc_macro_error};
 use quote::quote;
-use std::{env, fs, path::Path};
+use std::{fs, path::Path};
 use syn::{ItemFn, LitStr, ReturnType, Type, parse_macro_input, spanned::Spanned};
 
 mod checker;
@@ -15,20 +15,14 @@ pub fn script(input: TokenStream) -> TokenStream {
     let ScriptDefinition { path_lit, env_vars } = parse_macro_input!(input as ScriptDefinition);
 
     let path_str = path_lit.value();
-    let path_maybe_stub: &Path = path_str.as_ref();
-    let path = if path_maybe_stub.is_absolute() {
-        path_maybe_stub.to_path_buf()
-    } else {
-        env::current_dir()
-            .unwrap_or_else(|e| {
-                abort! {
-                    path_lit.span(),
-                    format!("Could not determine working directory!\n{e}")
-                }
-            })
-            .join(path_maybe_stub)
-    };
-    let file_contents = fs::read_to_string(path).unwrap_or_else(|e| {
+    let path_stub: &Path = path_str.as_ref();
+    let path = path_stub.canonicalize().unwrap_or_else(|e| {
+        abort! {
+            path_lit.span(),
+            format!("Unable to canonicalize script path!\n{e}")
+        }
+    });
+    let file_contents = fs::read_to_string(&path).unwrap_or_else(|e| {
         abort! {
             path_lit.span(),
             format!(
@@ -47,10 +41,10 @@ pub fn script(input: TokenStream) -> TokenStream {
             presented_contents.push_str(&script_injection);
         });
 
-    if let Err((msg, e)) = checker::run_shellcheck(&presented_contents) {
+    if let Err((msg, e)) = checker::run_shellcheck(&presented_contents, Some(&path)) {
         abort! {
             path_lit.span(),
-            "{} {}",
+            "{}\n{}",
             msg,
             e
         }

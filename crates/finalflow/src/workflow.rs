@@ -60,6 +60,11 @@ impl Workflow {
                 let canonical_path = input_path
                     .canonicalize()
                     .map_err(|e| ExecutionError::WriteError(e.to_string()))?;
+                if !canonical_path.exists() {
+                    return Err(ExecutionError::WriteError(
+                        "Canonicalized input path {:?} does not exist!".to_string(),
+                    ));
+                }
                 symlink(canonical_path, &sym_path)
                     .map_err(|e| ExecutionError::WriteError(e.to_string()))?;
                 *input_path = sym_path;

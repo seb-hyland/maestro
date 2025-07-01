@@ -4,10 +4,7 @@ use proc_macro::{Span, TokenStream};
 use proc_macro_error::{abort, proc_macro_error};
 use quote::quote;
 use std::{env, fs, path::Path};
-use syn::{
-    FnArg, ItemFn, LitStr, Pat, ReturnType, Stmt, Type, parse_macro_input, parse_quote,
-    spanned::Spanned,
-};
+use syn::{ItemFn, LitStr, ReturnType, Type, parse_macro_input, spanned::Spanned};
 
 mod checker;
 mod container;
@@ -122,72 +119,9 @@ pub fn sif(input: TokenStream) -> TokenStream {
 #[proc_macro_attribute]
 #[proc_macro_error]
 pub fn workflow(_attributes: TokenStream, input: TokenStream) -> TokenStream {
-    let mut input = parse_macro_input!(input as ItemFn);
+    let input = parse_macro_input!(input as ItemFn);
 
-    const INPUTS_MSG: &str =
-        "#[workflow] annotated functions must only take String or PathBuf as input";
-    let mut path_checks = input
-        .sig
-        .inputs
-        .iter()
-        .filter_map(|arg| {
-            if let FnArg::Typed(v) = arg {
-                Some(v)
-            } else if let FnArg::Receiver(v) = arg {
-                abort! {
-                    v.span(),
-                    format!("Associated methods cannot be annotated with #[workflow]!\n{INPUTS_MSG}")
-                }
-            } else {
-                None
-            }
-        })
-        .map(|arg| (&*arg.ty, &*arg.pat))
-        .filter_map(|(ty, pat)| match ty {
-            Type::Path(type_path) => {
-                let name = match pat {
-                    Pat::Ident(v) => v.ident.clone(),
-                    _ => abort! {
-                        pat.span(),
-                        "Non-ident argument pattern detected!"
-                    },
-                };
-                let type_ident = type_path
-                    .path
-                    .segments
-                    .last()
-                    .unwrap_or_else(|| {
-                        abort! {
-                            ty.span(),
-                            "Empty input type!"
-                        }
-                    })
-                    .ident
-                    .clone();
-                match type_ident.to_string().as_str() {
-                    "PathBuf" => Some(name),
-                    "String" => None,
-                    _ => abort!(ty.span(), INPUTS_MSG),
-                }
-            }
-            _ => abort! {
-                ty.span(),
-                INPUTS_MSG
-            },
-        })
-        .map(|ident| -> Stmt {
-            parse_quote! {
-                if !#ident.exists() {
-                    return ::finalflow::prelude::WorkflowResult::Err(#ident);
-                }
-            }
-        })
-        .collect::<Vec<_>>();
-    // Avoid "you should add an else block 🗣️🔥" error msg from the compiler
-    path_checks.push(parse_quote! { (); });
-    input.block.stmts.splice(0..0, path_checks);
-
-    const RETURN_MSG: &str = "#[workflow] functions must return finalflow::WorkflowResult";
+    const RETURN_MSG: &str = "#[workflow] functions must return finalflow::Workflow";
     match &input.sig.output {
         ReturnType::Type(_, ty) => match ty.as_ref() {
             Type::Path(path) => {
@@ -202,7 +136,7 @@ pub fn workflow(_attributes: TokenStream, input: TokenStream) -> TokenStream {
                         }
                     })
                     .ident
-                    != "WorkflowResult"
+                    != "Workflow"
                 {
                     abort! {
                         ty.span(),
@@ -221,8 +155,21 @@ pub fn workflow(_attributes: TokenStream, input: TokenStream) -> TokenStream {
         },
     };
 
+    let name = input.sig.ident.to_string();
+    if name.contains('_') || !name.chars().next().unwrap_or('a').is_ascii_uppercase() {
+        abort! {
+            input.sig.ident.span(),
+            "Workflow names must be UpperCamelCase to distinguish from regular functions!"
+        }
+    }
+
+    let vis = input.vis;
+    let sig = input.sig;
+    let block = input.block;
+
     quote! {
-        #input
+        #[allow(non_snake_case)]
+        #vis #sig #block
     }
     .into()
 }

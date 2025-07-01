@@ -1,1 +1,1 @@
-pub use crate::types::workflow::{EnvVar, Script, Workflow, WorkflowResult};
+pub use crate::types::workflow::{EnvVar, Script, Workflow};

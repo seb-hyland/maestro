@@ -21,9 +21,10 @@ pub(crate) fn generate_hash() -> String {
 }
 
 pub(crate) fn gwd() -> Result<PathBuf, io::Error> {
+    const FINALFLOW_DIRNAME: &str = "finalflow_work";
     match env::var("FINALFLOW_WORK") {
-        Ok(v) => Ok(PathBuf::from(v).join(".finalflow-work")),
-        Err(_) => env::current_dir().map(|p| p.join(".finalflow-work")),
+        Ok(v) => Ok(PathBuf::from(v).join(FINALFLOW_DIRNAME)),
+        Err(_) => env::current_dir().map(|p| p.join(FINALFLOW_DIRNAME)),
     }
 }
 

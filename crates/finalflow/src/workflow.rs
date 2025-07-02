@@ -37,7 +37,8 @@ impl Workflow {
             let id = generate_session_id();
             session_workdir = workdir.join(id);
         }
-        let input_dir = session_workdir.join("inputs");
+        let input_dir = session_workdir.join(".finalflow_inputs");
+
         create_dir(&session_workdir).map_err(|e| ExecutionError::DirectoryError(e.to_string()))?;
         create_dir(&input_dir).map_err(|e| ExecutionError::DirectoryError(e.to_string()))?;
         let mut script_file = OpenOptions::new()
@@ -60,6 +61,7 @@ impl Workflow {
                             input_path
                         )))?;
                 let sym_path = input_dir.join(filename);
+
                 let canonical_path = input_path
                     .canonicalize()
                     .map_err(|e| ExecutionError::WriteError(e.to_string()))?;
@@ -79,7 +81,7 @@ impl Workflow {
 
     pub fn exe(mut self) -> ExecutionResult {
         let workdir = Self::prep_workdir(&mut self)?;
-        let script = workdir.join("inputs").join(Self::SCRIPT_NAME);
+        let script = workdir.join(".finalflow_inputs").join(Self::SCRIPT_NAME);
         let Workflow { cmd, outputs } = self;
         let vars: Vec<_> = cmd
             .env

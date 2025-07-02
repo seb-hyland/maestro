@@ -5,11 +5,17 @@ use crate::{
 use std::{
     fs::{self, OpenOptions, create_dir},
     io::Write,
-    os::unix::fs::{OpenOptionsExt, symlink},
+    os::unix::fs::OpenOptionsExt,
+    panic,
     path::PathBuf,
-    process::Command,
-    sync::mpsc,
+    process::{Child, Command, Stdio},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+        mpsc,
+    },
     thread,
+    time::Duration,
 };
 
 impl Workflow {
@@ -19,9 +25,8 @@ impl Workflow {
         Workflow { cmd, outputs }
     }
 
-    fn prep_workdir(
-        Workflow { cmd, outputs: _ }: &mut Workflow,
-    ) -> Result<PathBuf, ExecutionError> {
+    pub(crate) fn prep_workdir(&mut self) -> Result<PathBuf, ExecutionError> {
+        let Workflow { cmd, outputs: _ } = self;
         let workdir = gwd().map_err(|e| ExecutionError::DirectoryError(e.to_string()))?;
         if !workdir.exists() {
             create_dir(&workdir).map_err(|e| ExecutionError::DirectoryError(e.to_string()))?;
@@ -79,22 +84,31 @@ impl Workflow {
         Ok(session_workdir)
     }
 
-    pub fn exe(mut self) -> ExecutionResult {
-        let workdir = Self::prep_workdir(&mut self)?;
+    pub(crate) fn start_process(&self, workdir: &PathBuf) -> Result<Child, ExecutionError> {
         let script = workdir.join(".finalflow_inputs").join(Self::SCRIPT_NAME);
-        let Workflow { cmd, outputs } = self;
+        let Workflow { cmd, outputs: _ } = self;
         let vars: Vec<_> = cmd
             .env
-            .into_iter()
+            .iter()
             .map(|EnvVar(k, val)| match val {
-                EnvVarValue::Param(s) => (k, s),
+                EnvVarValue::Param(s) => (k, s.clone()),
                 EnvVarValue::File(p) => (k, p.to_string_lossy().to_string()),
             })
             .collect();
-        let cmd = Command::new(script)
+        Command::new(script)
+            .stdout(Stdio::piped())
+            .stderr(Stdio::piped())
             .envs(vars)
-            .current_dir(&workdir)
-            .output()
+            .current_dir(workdir)
+            .spawn()
+            .map_err(|e| ExecutionError::ProcessError(e.to_string()))
+    }
+
+    pub(crate) fn handle_process_output(&self, child: Child, workdir: PathBuf) -> ExecutionResult {
+        let Workflow { cmd: _, outputs } = self;
+
+        let cmd = child
+            .wait_with_output()
             .map_err(|e| ExecutionError::ProcessError(e.to_string()))?;
         if !cmd.status.success() {
             return Err(ExecutionError::ProcessError(format!(
@@ -103,7 +117,6 @@ impl Workflow {
                 String::from_utf8_lossy(&cmd.stderr)
             )));
         }
-
         let output_checks: Vec<PathBuf> = outputs
             .iter()
             .map(|p| workdir.join(p))
@@ -116,6 +129,47 @@ impl Workflow {
             }
             false => Err(ExecutionError::OutputsNotFound(output_checks)),
         }
+    }
+
+    pub fn exe(mut self) -> ExecutionResult {
+        let workdir = self.prep_workdir()?;
+        let child = self.start_process(&workdir)?;
+        self.handle_process_output(child, workdir)
+    }
+
+    pub(crate) fn exe_abortable(mut self, cancel_flag: Arc<AtomicBool>) -> ExecutionResult {
+        let check_not_cancelled = |workdir: Option<&PathBuf>| -> Result<(), ExecutionError> {
+            if cancel_flag.load(Ordering::Acquire) {
+                if let Some(dir) = workdir {
+                    let _ = fs::write(
+                        dir.join(".finalflow_log"),
+                        "Process cancelled due to other process's failure!",
+                    );
+                    Err(ExecutionError::Aborted)
+                } else {
+                    Err(ExecutionError::Aborted)
+                }
+            } else {
+                Ok(())
+            }
+        };
+
+        check_not_cancelled(None)?;
+        let workdir = self.prep_workdir()?;
+
+        check_not_cancelled(Some(&workdir))?;
+        let mut child = self.start_process(&workdir)?;
+
+        loop {
+            check_not_cancelled(Some(&workdir))?;
+            if let Ok(Some(_)) = child.try_wait() {
+                break;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+
+        check_not_cancelled(Some(&workdir))?;
+        self.handle_process_output(child, workdir)
     }
 }
 
@@ -142,15 +196,26 @@ impl WorkflowVecExt for Vec<Workflow> {
 
     fn par_exe_abort(self) -> Result<Vec<Vec<PathBuf>>, ExecutionError> {
         let (tx, rx) = mpsc::channel();
+        let cancellation_flag = Arc::new(AtomicBool::new(false));
         let handles = self
             .into_iter()
             .enumerate()
             .map(|(i, workflow)| {
                 let tx = tx.clone();
+                let flag = cancellation_flag.clone();
                 thread::spawn(move || {
-                    let workflow_result = workflow.exe();
-                    tx.send((i, workflow_result))
-                        .expect("Channel receiver should not have been dropped!");
+                    // Catch if process panics
+                    let result = panic::catch_unwind(|| {
+                        let workflow_result = workflow.exe_abortable(flag);
+                        (i, workflow_result)
+                    })
+                    .unwrap_or_else(|panic_payload| {
+                        let err = ExecutionError::ProcessError(format!(
+                            "Process {i} panicked with error {panic_payload:?}"
+                        ));
+                        (i, Err(err))
+                    });
+                    let _ = tx.send(result);
                 })
             })
             .collect::<Vec<_>>();
@@ -162,7 +227,10 @@ impl WorkflowVecExt for Vec<Workflow> {
         (0..handles.len()).try_for_each(|_| {
             let (i, result) = rx.recv().expect("Channel send should not fail!");
             match result {
-                Err(e) => return Err(e),
+                Err(e) => {
+                    cancellation_flag.store(true, Ordering::Release);
+                    return Err(e);
+                }
                 Ok(v) => results[i] = Some(v),
             };
             Ok(())
@@ -172,6 +240,11 @@ impl WorkflowVecExt for Vec<Workflow> {
             .into_iter()
             .map(|v| v.expect("All results should have been received!"))
             .collect::<Vec<_>>();
+
+        handles.into_iter().for_each(|handle| {
+            // Make sure all threads have cleaned up
+            let _ = handle.join();
+        });
 
         Ok(unwrapped_results)
     }

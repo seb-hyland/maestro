@@ -1,8 +1,8 @@
 use std::path::PathBuf;
 
 pub struct Workflow {
-    pub cmd: Script,
-    pub outputs: Vec<PathBuf>,
+    pub(crate) cmd: Script,
+    pub(crate) outputs: Vec<PathBuf>,
 }
 
 pub struct Script {
@@ -16,6 +16,7 @@ pub enum EnvVarValue {
     Param(String),
     File(PathBuf),
 }
+
 impl From<String> for EnvVarValue {
     fn from(s: String) -> Self {
         Self::Param(s)
@@ -46,4 +47,5 @@ pub enum ExecutionError {
     ProcessError(String),
     InputsNotFound(Vec<PathBuf>),
     OutputsNotFound(Vec<PathBuf>),
+    Aborted,
 }

@@ -31,6 +31,11 @@ impl From<PathBuf> for EnvVarValue {
         Self::File(p)
     }
 }
+impl From<&PathBuf> for EnvVarValue {
+    fn from(p: &PathBuf) -> Self {
+        Self::File(p.clone())
+    }
+}
 
 pub type ExecutionResult = Result<Vec<PathBuf>, ExecutionError>;
 

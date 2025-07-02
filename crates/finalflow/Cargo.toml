@@ -6,6 +6,6 @@ edition = "2024"
 [lib]
 
 [dependencies]
-finalflow-macros = { path = "../macros" }
+finalflow-macros = { path = "../proc-macros" }
 eyre = "0.6.12"
 rand = "0.9.1"

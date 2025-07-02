@@ -1,5 +1,5 @@
 use crate::{
-    session::{generate_hash, gwd},
+    session::{generate_hash, generate_session_id, gwd},
     types::workflow::{EnvVar, EnvVarValue, ExecutionError, ExecutionResult, Script, Workflow},
 };
 use std::{
@@ -8,6 +8,8 @@ use std::{
     os::unix::fs::{OpenOptionsExt, symlink},
     path::PathBuf,
     process::Command,
+    sync::mpsc,
+    thread,
 };
 
 impl Workflow {
@@ -25,18 +27,18 @@ impl Workflow {
             create_dir(&workdir).map_err(|e| ExecutionError::DirectoryError(e.to_string()))?;
         }
 
-        let mut hashed_workdir = workdir.join(generate_hash());
+        let mut session_workdir = workdir.join(generate_session_id());
         // For rare case where hashes are generated identically multiple times
         // Use bounded iterator; it is almost impossible for this to occur multiple times
         for _ in 0..2 {
-            if !hashed_workdir.exists() {
+            if !session_workdir.exists() {
                 break;
             }
-            let hash = generate_hash();
-            hashed_workdir = workdir.join(hash);
+            let id = generate_session_id();
+            session_workdir = workdir.join(id);
         }
-        let input_dir = hashed_workdir.join("inputs");
-        create_dir(&hashed_workdir).map_err(|e| ExecutionError::DirectoryError(e.to_string()))?;
+        let input_dir = session_workdir.join("inputs");
+        create_dir(&session_workdir).map_err(|e| ExecutionError::DirectoryError(e.to_string()))?;
         create_dir(&input_dir).map_err(|e| ExecutionError::DirectoryError(e.to_string()))?;
         let mut script_file = OpenOptions::new()
             .write(true)
@@ -72,10 +74,10 @@ impl Workflow {
             }
             Ok(())
         })?;
-        Ok(hashed_workdir)
+        Ok(session_workdir)
     }
 
-    pub fn execute(mut self) -> ExecutionResult {
+    pub fn exe(mut self) -> ExecutionResult {
         let workdir = Self::prep_workdir(&mut self)?;
         let script = workdir.join("inputs").join(Self::SCRIPT_NAME);
         let Workflow { cmd, outputs } = self;
@@ -112,5 +114,63 @@ impl Workflow {
             }
             false => Err(ExecutionError::OutputsNotFound(output_checks)),
         }
+    }
+}
+
+pub trait WorkflowVecExt {
+    fn par_exe(self) -> Vec<ExecutionResult>;
+    fn par_exe_abort(self) -> Result<Vec<Vec<PathBuf>>, ExecutionError>;
+}
+
+impl WorkflowVecExt for Vec<Workflow> {
+    fn par_exe(self) -> Vec<ExecutionResult> {
+        self.into_iter()
+            .map(|workflow| thread::spawn(|| workflow.exe()))
+            .map(|handle| handle.join())
+            .map(|joinresult| match joinresult {
+                Err(e) => {
+                    let process_error: Box<String> =
+                        e.downcast().unwrap_or(Box::new(String::new()));
+                    Err(ExecutionError::ProcessError(process_error.to_string()))
+                }
+                Ok(v) => v,
+            })
+            .collect()
+    }
+
+    fn par_exe_abort(self) -> Result<Vec<Vec<PathBuf>>, ExecutionError> {
+        let (tx, rx) = mpsc::channel();
+        let handles = self
+            .into_iter()
+            .enumerate()
+            .map(|(i, workflow)| {
+                let tx = tx.clone();
+                thread::spawn(move || {
+                    let workflow_result = workflow.exe();
+                    tx.send((i, workflow_result))
+                        .expect("Channel receiver should not have been dropped!");
+                })
+            })
+            .collect::<Vec<_>>();
+
+        // Drop the original sender
+        drop(tx);
+
+        let mut results: Vec<Option<Vec<PathBuf>>> = vec![None; handles.len()];
+        (0..handles.len()).try_for_each(|_| {
+            let (i, result) = rx.recv().expect("Channel send should not fail!");
+            match result {
+                Err(e) => return Err(e),
+                Ok(v) => results[i] = Some(v),
+            };
+            Ok(())
+        })?;
+
+        let unwrapped_results = results
+            .into_iter()
+            .map(|v| v.expect("All results should have been received!"))
+            .collect::<Vec<_>>();
+
+        Ok(unwrapped_results)
     }
 }

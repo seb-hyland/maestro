@@ -1,4 +1,4 @@
 target/
-tester/
-finalflow_work/
+tester
+maestro_work/
 *.DS_Store

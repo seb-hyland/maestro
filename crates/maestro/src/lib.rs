@@ -47,3 +47,12 @@ impl<'a> From<&'a Path> for Injection {
         Self::File(p.to_path_buf())
     }
 }
+
+pub trait OutputMapper {
+    fn join_outputs<const N: usize>(&self, paths: [&Path; N]) -> Vec<PathBuf>;
+}
+impl OutputMapper for PathBuf {
+    fn join_outputs<const N: usize>(&self, paths: [&Path; N]) -> Vec<PathBuf> {
+        paths.iter().map(|p| self.join(p)).collect()
+    }
+}

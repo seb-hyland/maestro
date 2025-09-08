@@ -1,42 +1,37 @@
 use std::{
     fs::{File, read_to_string},
     io::{self, Write as _},
+    path::PathBuf,
     process::Command,
 };
 
-use crate::{Script, workflow::CopyMode};
+use crate::{Script, workflow::StagingMode};
 
 pub trait Executor {
-    fn exe(self, script: Script) -> io::Result<()>;
+    fn exe(self, script: Script) -> io::Result<PathBuf>;
 }
 
 pub struct LocalExecutor {
-    copy_mode: CopyMode,
-    create_parents: bool,
+    copy_mode: StagingMode,
 }
 
 impl Default for LocalExecutor {
     fn default() -> Self {
         Self {
-            copy_mode: CopyMode::Copy,
-            create_parents: true,
+            copy_mode: StagingMode::Symlink,
         }
     }
 }
 
 impl LocalExecutor {
-    pub fn with_copy_mode(mut self, mode: CopyMode) -> Self {
+    pub fn with_copy_mode(mut self, mode: StagingMode) -> Self {
         self.copy_mode = mode;
-        self
-    }
-    pub fn create_parents(mut self, yes: bool) -> Self {
-        self.create_parents = yes;
         self
     }
 }
 
 impl Executor for LocalExecutor {
-    fn exe(self, mut script: Script) -> io::Result<()> {
+    fn exe(self, mut script: Script) -> io::Result<PathBuf> {
         let (workdir, script_path, log_path, mut log_handle) =
             script.prep_script_inputs(self.copy_mode)?;
         let vars = script.display_vars();
@@ -49,7 +44,7 @@ impl Executor for LocalExecutor {
             .stdout(log_handle.try_clone()?)
             .stderr(File::create(&log_stderr_path)?)
             .envs(vars)
-            .current_dir(workdir)
+            .current_dir(&workdir)
             .output()?;
 
         if !output.status.success() {
@@ -69,7 +64,7 @@ impl Executor for LocalExecutor {
             )))
         } else {
             writeln!(log_handle, ":: Process terminated successfully!")?;
-            Ok(())
+            Ok(workdir)
         }
     }
 }

@@ -9,19 +9,12 @@
 #[macro_export]
 macro_rules! paths {
     ( $( $token:tt ),* $(,)? ) => {{
-        vec![
+        [
             $(
-                paths!(@parse $token)
+                Path::new($token)
             ),*
         ]
     }};
-
-    (@parse $lit:literal) => {
-        ::std::path::PathBuf::from($lit)
-    };
-    (@parse $id:ident) => {
-        $id
-    };
 }
 /// Example usage:
 /// ```rust

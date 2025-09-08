@@ -2,19 +2,21 @@ use crate::{Injection, Script, session::create_process_dir};
 use std::{
     fs::{self, File, OpenOptions, create_dir},
     io::{self, Write},
+    ops::Not,
     os::unix::{self, fs::OpenOptionsExt},
     path::{Path, PathBuf},
 };
 #[derive(Clone, Copy)]
-pub enum CopyMode {
+pub enum StagingMode {
     Copy,
     Symlink,
+    None,
 }
 
 impl<'a> Script<'a> {
     pub(crate) fn prep_script_inputs(
         &mut self,
-        copy_mode: CopyMode,
+        copy_mode: StagingMode,
     ) -> Result<(PathBuf, PathBuf, PathBuf, File), io::Error> {
         let process_workdir = create_process_dir()?;
         let log_path = process_workdir.join(".maestro.log");
@@ -34,27 +36,30 @@ impl<'a> Script<'a> {
             log_handle,
             ":: Staging inputs using method {}",
             match copy_mode {
-                CopyMode::Copy => "COPY",
-                CopyMode::Symlink => "SYMLINK",
+                StagingMode::Copy => "COPY",
+                StagingMode::Symlink => "SYMLINK",
+                StagingMode::None => "NONE",
             }
         )?;
-        for (var, injection) in self.vars.iter_mut() {
-            if let Injection::File(origin_path) = injection
-                && origin_path.exists()
-            {
-                let name = origin_path.file_name().ok_or(io::Error::new(
-                    io::ErrorKind::InvalidFilename,
-                    format!("No file name for path {origin_path:?}"),
-                ))?;
-                let destination = input_dir.join(format!("[{}]{}", var, name.display()));
-                Self::injection_transformer(origin_path, &destination, copy_mode)?;
-                writeln!(
-                    log_handle,
-                    "Input for variable {var} at {} staged to {}",
-                    origin_path.display(),
-                    destination.display()
-                )?;
-                *injection = Injection::File(destination);
+        if matches!(copy_mode, StagingMode::None).not() {
+            for (var, injection) in self.vars.iter_mut() {
+                if let Injection::File(origin_path) = injection
+                    && origin_path.exists()
+                {
+                    let name = origin_path.file_name().ok_or(io::Error::new(
+                        io::ErrorKind::InvalidFilename,
+                        format!("No file name for path {origin_path:?}"),
+                    ))?;
+                    let destination = input_dir.join(format!("[{}]{}", var, name.display()));
+                    Self::injection_transformer(origin_path, &destination, copy_mode)?;
+                    writeln!(
+                        log_handle,
+                        "Input for variable {var} at {} staged to {}",
+                        origin_path.display(),
+                        destination.display()
+                    )?;
+                    *injection = Injection::File(destination);
+                }
             }
         }
 
@@ -72,13 +77,16 @@ impl<'a> Script<'a> {
     fn injection_transformer(
         item_path: &Path,
         target_path: &Path,
-        copy_mode: CopyMode,
+        copy_mode: StagingMode,
     ) -> io::Result<()> {
         // If passed a file
         if !item_path.is_dir() {
             match copy_mode {
-                CopyMode::Copy => fs::copy(item_path, target_path).map(|_| ())?,
-                CopyMode::Symlink => unix::fs::symlink(item_path.canonicalize()?, target_path)?,
+                StagingMode::Copy => fs::copy(item_path, target_path).map(|_| ())?,
+                StagingMode::Symlink => unix::fs::symlink(item_path.canonicalize()?, target_path)?,
+                StagingMode::None => {
+                    unreachable!("Attempting to transform injections when staging mode is None.")
+                }
             }
             return Ok(());
         }

@@ -15,12 +15,13 @@ impl<'a> Script<'a> {
     pub(crate) fn prep_script_inputs(
         &mut self,
         copy_mode: CopyMode,
-    ) -> Result<(PathBuf, PathBuf, File), io::Error> {
+    ) -> Result<(PathBuf, PathBuf, PathBuf, File), io::Error> {
         let process_workdir = create_process_dir()?;
+        let log_path = process_workdir.join(".maestro.log");
         let mut log_handle = OpenOptions::new()
             .create(true)
             .append(true)
-            .open(process_workdir.join(".maestro.log"))?;
+            .open(&log_path)?;
         writeln!(
             log_handle,
             ":: Process workdir initialized at {}",
@@ -49,7 +50,7 @@ impl<'a> Script<'a> {
                 Self::injection_transformer(origin_path, &destination, copy_mode)?;
                 writeln!(
                     log_handle,
-                    "Input for variable {var} at {} copied to {}",
+                    "Input for variable {var} at {} staged to {}",
                     origin_path.display(),
                     destination.display()
                 )?;
@@ -65,7 +66,7 @@ impl<'a> Script<'a> {
             .open(&script_path)?;
         script_file.write_all(self.script.as_bytes())?;
 
-        Ok((process_workdir, script_path, log_handle))
+        Ok((process_workdir, script_path, log_path, log_handle))
     }
 
     fn injection_transformer(
@@ -77,7 +78,7 @@ impl<'a> Script<'a> {
         if !item_path.is_dir() {
             match copy_mode {
                 CopyMode::Copy => fs::copy(item_path, target_path).map(|_| ())?,
-                CopyMode::Symlink => unix::fs::symlink(item_path, target_path)?,
+                CopyMode::Symlink => unix::fs::symlink(item_path.canonicalize()?, target_path)?,
             }
             return Ok(());
         }

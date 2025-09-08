@@ -1,10 +1,10 @@
 use std::{
-    fs::File,
+    fs::{File, read_to_string},
     io::{self, Write as _},
     process::Command,
 };
 
-use crate::{Injection, Script, workflow::CopyMode};
+use crate::{Script, workflow::CopyMode};
 
 pub trait Executor {
     fn exe(self, script: Script) -> io::Result<()>;
@@ -37,20 +37,13 @@ impl LocalExecutor {
 
 impl Executor for LocalExecutor {
     fn exe(self, mut script: Script) -> io::Result<()> {
-        let (workdir, script_path, mut log_handle) = script.prep_script_inputs(self.copy_mode)?;
-        let vars: Vec<_> = script
-            .vars
-            .iter()
-            .map(|(k, val)| match val {
-                Injection::Param(s) => (k, s.to_string()),
-                Injection::File(p) => (k, p.to_string_lossy().to_string()),
-            })
-            .collect();
+        let (workdir, script_path, log_path, mut log_handle) =
+            script.prep_script_inputs(self.copy_mode)?;
+        let vars = script.display_vars();
 
         // TODO! Chrono
         writeln!(log_handle, ":: Spawning process script")?;
         writeln!(log_handle, ":: Logging process output...")?;
-
         let log_stderr_path = workdir.join(".maestro.err");
         let output = Command::new(script_path)
             .stdout(log_handle.try_clone()?)
@@ -58,20 +51,25 @@ impl Executor for LocalExecutor {
             .envs(vars)
             .current_dir(workdir)
             .output()?;
+
         if !output.status.success() {
-            writeln!(
-                log_handle,
-                ":: Process failed with exit code {:?}",
-                output.status.code()
-            )?;
-            writeln!(
-                log_handle,
-                ":: Process stderr:\n{}",
-                String::from_utf8_lossy(&output.stderr)
-            )?;
+            writeln!(log_handle, ":: Process failed!")?;
+            if let Some(exit_code) = output.status.code() {
+                writeln!(log_handle, ":: Exit code: {exit_code}")?;
+            }
+            let stderr = match read_to_string(&log_stderr_path) {
+                Ok(stderr) => stderr,
+                Err(e) => format!("Failed to read .maestro.err: {e:?}"),
+            };
+            writeln!(log_handle, ":: Process stderr:\n{stderr}")?;
+            Err(io::Error::other(format!(
+                "Shell process exited with non-zero exit code. Logs at {}; stderr at {}",
+                log_path.display(),
+                log_stderr_path.display()
+            )))
         } else {
             writeln!(log_handle, ":: Process terminated successfully!")?;
+            Ok(())
         }
-        Ok(())
     }
 }

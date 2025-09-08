@@ -9,7 +9,18 @@ pub mod workflow;
 
 pub struct Script<'a> {
     pub script: &'a str,
-    pub vars: &'a mut [(&'static str, Injection)],
+    pub vars: &'a mut [(&'a str, Injection)],
+}
+impl<'a> Script<'a> {
+    fn display_vars(&self) -> Vec<(&'a str, String)> {
+        self.vars
+            .iter()
+            .map(|(k, val)| match val {
+                Injection::Param(s) => (*k, s.to_string()),
+                Injection::File(p) => (*k, p.to_string_lossy().to_string()),
+            })
+            .collect()
+    }
 }
 
 pub enum Injection {

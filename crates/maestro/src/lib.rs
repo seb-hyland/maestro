@@ -2,6 +2,7 @@
 
 use std::path::{Path, PathBuf};
 
+pub mod executors;
 mod macros;
 mod session;
 pub mod workflow;

@@ -27,15 +27,16 @@ pub fn inline_process(input: TokenStream) -> TokenStream {
         path_lit: script_lit,
         env_vars,
     } = parse_macro_input!(input as ScriptDefinition);
-    let env_var_lits: Vec<LitStr> = env_vars
-        .iter()
-        .map(|ident| LitStr::new(&ident.to_string(), ident.span()))
-        .collect();
+
+    let pairs = env_vars.into_iter().map(|ident| {
+        let lit = LitStr::new(&ident.to_string(), ident.span());
+        quote! { (#lit, #ident.into()) }
+    });
     quote! {
         maestro::Script {
             script: #script_lit,
             vars: &mut [
-                #((#env_var_lits, #env_vars.into())),*
+                #(#pairs),*
             ]
         }
     }
@@ -88,15 +89,16 @@ pub fn process(input: TokenStream) -> TokenStream {
     // }
 
     let file_contents_lit = LitStr::new(&file_contents, path_lit.span());
-    let env_var_lits: Vec<LitStr> = env_vars
-        .iter()
-        .map(|ident| LitStr::new(&ident.to_string(), ident.span()))
-        .collect();
+
+    let pairs = env_vars.into_iter().map(|ident| {
+        let lit = LitStr::new(&ident.to_string(), ident.span());
+        quote! { (#lit, #ident.into()) }
+    });
     quote! {
         maestro::Script {
             script: #file_contents_lit,
             vars: &mut [
-                #((#env_var_lits, #env_vars.into())),*
+                #(#pairs),*
             ]
         }
     }

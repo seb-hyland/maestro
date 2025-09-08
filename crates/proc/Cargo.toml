@@ -1,5 +1,5 @@
 [package]
-name = "finalflow-macros"
+name = "maestro-macros"
 version = "0.1.0"
 edition = "2024"
 
@@ -9,7 +9,6 @@ proc-macro = true
 
 [dependencies]
 oci-distribution = "0.11.0"
-proc-macro-error = "1.0.4"
 proc-macro2 = "1.0.95"
 quote = "1.0.40"
 regex = "1.11.1"

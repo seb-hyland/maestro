@@ -5,7 +5,7 @@ edition = "2024"
 
 [dependencies]
 maestro = { path = "../crates/maestro" }
-finalflow-macros = { path = "../crates/proc-macros" }
+maestro-macros = { path = "../crates/proc" }
 
 [profile.dev]
 incremental = false

@@ -1,5 +1,5 @@
 #!/bin/bash
 echo "cat:"
-cat $TESTFASTA
+cat $test_fasta
 echo "tree:"
-exa --tree $TESTDIR
+# exa --tree $TESTDIR

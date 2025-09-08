@@ -6,5 +6,4 @@ edition = "2024"
 [lib]
 
 [dependencies]
-finalflow-macros = { path = "../proc-macros" }
 rand = "0.9.1"

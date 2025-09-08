@@ -6,21 +6,6 @@ use std::{
 };
 use syn::{Ident, LitStr, parse::Parse, punctuated::Punctuated, token::Comma};
 
-pub(crate) struct ScriptDefinition {
-    pub(crate) path_lit: LitStr,
-    pub(crate) env_vars: Punctuated<Ident, Comma>,
-}
-
-impl Parse for ScriptDefinition {
-    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let path_lit: LitStr = input.parse()?;
-        let _comma: Option<Comma> = input.parse().ok();
-
-        let env_vars = Punctuated::parse_terminated(input)?;
-        Ok(ScriptDefinition { path_lit, env_vars })
-    }
-}
-
 pub(crate) fn run_shellcheck(input: &str, origin: Option<&Path>) -> Result<(), (String, String)> {
     let mut child = Command::new("shellcheck")
         .arg("-")

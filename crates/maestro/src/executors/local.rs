@@ -1,15 +1,10 @@
+use crate::{Script, executors::Executor, workflow::StagingMode};
 use std::{
     fs::{File, read_to_string},
     io::{self, Write as _},
     path::PathBuf,
     process::Command,
 };
-
-use crate::{Script, workflow::StagingMode};
-
-pub trait Executor {
-    fn exe(self, script: Script) -> io::Result<PathBuf>;
-}
 
 pub struct LocalExecutor {
     copy_mode: StagingMode,

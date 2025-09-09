@@ -2,7 +2,7 @@ use std::{io, path::PathBuf};
 
 use maestro::{
     OutputMapper, assert_exists,
-    executors::{Executor, LocalExecutor},
+    executors::{Executor, local::LocalExecutor},
     paths,
     workflow::StagingMode,
 };

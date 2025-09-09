@@ -1,44 +1,48 @@
-use crate::{Script, executors::Executor, workflow::StagingMode};
+use crate::{Script, StagingMode, executors::Executor};
 use std::{
     fs::{File, read_to_string},
     io::{self, Write as _},
     path::PathBuf,
-    process::Command,
+    process::{Command, Stdio},
 };
 
 pub struct LocalExecutor {
-    copy_mode: StagingMode,
+    staging_mode: StagingMode,
 }
 
 impl Default for LocalExecutor {
     fn default() -> Self {
         Self {
-            copy_mode: StagingMode::Symlink,
+            staging_mode: StagingMode::Symlink,
         }
     }
 }
 
 impl LocalExecutor {
-    pub fn with_copy_mode(mut self, mode: StagingMode) -> Self {
-        self.copy_mode = mode;
+    pub fn with_staging_mode(mut self, mode: StagingMode) -> Self {
+        self.staging_mode = mode;
         self
     }
 }
 
 impl Executor for LocalExecutor {
     fn exe(self, mut script: Script) -> io::Result<PathBuf> {
-        let (workdir, script_path, log_path, mut log_handle) =
-            script.prep_script_inputs(self.copy_mode)?;
-        let vars = script.display_vars();
+        let (workdir, (log_path, mut log_handle), (launcher_path, mut launcher_handle)) =
+            script.prep_script_workdir()?;
+        script.stage_inputs(&mut launcher_handle, &workdir, &self.staging_mode)?;
+        writeln!(
+            launcher_handle,
+            "echo -e \":: Launching local process\\nstdout: .maestro.out\\nstderr: .maestro.err\""
+        )?;
+        writeln!(
+            launcher_handle,
+            "./.maestro.sh > .maestro.out 2> .maestro.err"
+        )?;
 
-        // TODO! Chrono
-        writeln!(log_handle, ":: Spawning process script")?;
-        writeln!(log_handle, ":: Logging process output...")?;
         let log_stderr_path = workdir.join(".maestro.err");
-        let output = Command::new(script_path)
+        let output = Command::new(launcher_path)
             .stdout(log_handle.try_clone()?)
-            .stderr(File::create(&log_stderr_path)?)
-            .envs(vars)
+            .stderr(log_handle.try_clone()?)
             .current_dir(&workdir)
             .output()?;
 
@@ -58,7 +62,10 @@ impl Executor for LocalExecutor {
                 log_stderr_path.display()
             )))
         } else {
-            writeln!(log_handle, ":: Process terminated successfully!")?;
+            writeln!(
+                log_handle,
+                ":: Process terminated successfully with exit code 0"
+            )?;
             Ok(workdir)
         }
     }

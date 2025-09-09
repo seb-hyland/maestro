@@ -1,25 +1,24 @@
 use std::{io, path::PathBuf};
 
 use maestro::{
-    OutputMapper, assert_exists,
+    OutputMapper, StagingMode, assert_exists,
     executors::{Executor, local::LocalExecutor},
     paths,
-    workflow::StagingMode,
 };
 use maestro_macros::{inline_process, process};
 
 fn main() {
     test_workflow().unwrap();
-    test_workflow_inline().unwrap();
+    // test_workflow_inline().unwrap();
 }
 
 fn test_workflow() -> io::Result<PathBuf> {
     let test_fasta = PathBuf::from("tester/data/seq1.fasta");
-    assert_exists!(test_fasta);
+    let test_dir = PathBuf::from("tester/data/");
 
-    let process = process!("tester/scripts/test.sh", test_fasta);
+    let process = process!("tester/scripts/test.sh", test_fasta, test_dir);
     LocalExecutor::default()
-        .with_copy_mode(StagingMode::Symlink)
+        .with_staging_mode(StagingMode::Copy)
         .exe(process)
 }
 

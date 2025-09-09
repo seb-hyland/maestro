@@ -41,7 +41,9 @@ fn test_workflow_inline() -> io::Result<()> {
     );
 
     let output_path = LocalExecutor::default().exe(process).unwrap();
-    let outputs = output_path.join_outputs(paths![output_1, output_2, output_3]);
+    let all_outputs = paths![output_1, output_2, output_3];
+    assert_exists!(all_outputs);
+    let outputs = output_path.join_outputs(all_outputs);
 
     assert_exists!(outputs);
     println!("{outputs:?}");

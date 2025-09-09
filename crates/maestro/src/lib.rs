@@ -90,6 +90,20 @@ impl OutputChecker for Vec<&Path> {
         }
     }
 }
+impl<const N: usize> OutputChecker for [PathBuf; N] {
+    fn check_path<'a>(&'a self, target: &mut Vec<&'a Path>) {
+        for path in self.iter() {
+            inner(path, target);
+        }
+    }
+}
+impl<const N: usize> OutputChecker for [&Path; N] {
+    fn check_path<'a>(&'a self, target: &mut Vec<&'a Path>) {
+        for path in self.iter() {
+            inner(path, target);
+        }
+    }
+}
 impl OutputChecker for &[PathBuf] {
     fn check_path<'a>(&'a self, target: &mut Vec<&'a Path>) {
         for path in self.iter() {

@@ -56,3 +56,51 @@ impl OutputMapper for PathBuf {
         paths.iter().map(|p| self.join(p)).collect()
     }
 }
+
+pub trait OutputChecker {
+    fn check_path<'a>(&'a self, vec: &mut Vec<&'a Path>);
+}
+fn inner<'a, P: AsRef<Path> + ?Sized>(path: &'a P, target: &mut Vec<&'a Path>) {
+    let path = path.as_ref();
+    if !path.exists() {
+        target.push(path)
+    }
+}
+impl OutputChecker for Path {
+    fn check_path<'a>(&'a self, target: &mut Vec<&'a Path>) {
+        inner(self, target);
+    }
+}
+impl OutputChecker for PathBuf {
+    fn check_path<'a>(&'a self, target: &mut Vec<&'a Path>) {
+        inner(self, target);
+    }
+}
+impl OutputChecker for Vec<PathBuf> {
+    fn check_path<'a>(&'a self, target: &mut Vec<&'a Path>) {
+        for path in self {
+            inner(path, target);
+        }
+    }
+}
+impl OutputChecker for Vec<&Path> {
+    fn check_path<'a>(&'a self, target: &mut Vec<&'a Path>) {
+        for path in self {
+            inner(path, target);
+        }
+    }
+}
+impl OutputChecker for &[PathBuf] {
+    fn check_path<'a>(&'a self, target: &mut Vec<&'a Path>) {
+        for path in self.iter() {
+            inner(path, target);
+        }
+    }
+}
+impl OutputChecker for &[&Path] {
+    fn check_path<'a>(&'a self, target: &mut Vec<&'a Path>) {
+        for path in self.iter() {
+            inner(path, target);
+        }
+    }
+}

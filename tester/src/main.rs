@@ -19,7 +19,6 @@ fn test_workflow() -> io::Result<Vec<PathBuf>> {
     let test_fasta = PathBuf::from("tester/data/seq1.fasta");
     let test_dir = PathBuf::from("tester/data/");
     let output_path = String::from("out.txt");
-    let other_path = String::from("hi!");
 
     let process = process! {
         name = "cat_seq",
@@ -27,13 +26,15 @@ fn test_workflow() -> io::Result<Vec<PathBuf>> {
             test_fasta,
             test_dir
         ],
-        args = [
+        outputs = [
             output_path
         ],
-        outputs = [
-            other_path
-        ],
-        process = "tester/scripts/test.sh"
+        inline = true,
+        process = r#"
+        cat $test_fasta
+        cat $test_dir/seq2.fast
+        tree $test_dir > $output_path
+        "#
     };
     // SlurmExecutor::default()
     //     .with_staging_mode(StagingMode::None)
@@ -48,6 +49,7 @@ fn test_workflow() -> io::Result<Vec<PathBuf>> {
     //     })
     //     .exe(process)
     LocalExecutor::default()
+        .with_error_handling(false)
         .with_staging_mode(StagingMode::Symlink)
         .exe(process)
 }

@@ -49,15 +49,12 @@ impl<'a> Process<'a> {
             let session_dir = SESSION_WORKDIR
                 .as_ref()
                 .map_err(|e| io::Error::new(e.kind(), e.to_string()))?;
-            let dir = session_dir.join(self.name);
-            if dir.exists() {
-                return Err(io::Error::new(
-                    io::ErrorKind::DirectoryNotEmpty,
-                    format!(
-                        "Process working directory {} already exists!",
-                        dir.display()
-                    ),
-                ));
+            let mut dir = session_dir.join(self.name);
+            let mut idx = 1;
+            while dir.exists() {
+                let dir_name = format!("{}_{}", self.name, idx);
+                dir = session_dir.join(dir_name);
+                idx += 1;
             }
             create_dir_all(&dir)?;
             dir

@@ -25,7 +25,7 @@ impl<'a> Script<'a> {
     ) -> Result<(PathBuf, FilePair, FilePair), io::Error> {
         let process_workdir = create_process_dir()?;
 
-        let script_path = process_workdir.join("maestro.sh");
+        let script_path = process_workdir.join(".maestro.sh");
         let mut script_file = OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -33,13 +33,13 @@ impl<'a> Script<'a> {
             .open(&script_path)?;
         script_file.write_all(self.script.as_bytes())?;
 
-        let log_path = process_workdir.join("maestro.log");
+        let log_path = process_workdir.join(".maestro.log");
         let log_handle = OpenOptions::new()
             .create_new(true)
             .append(true)
             .open(&log_path)?;
 
-        let launcher_path = process_workdir.join("maestro.launcher");
+        let launcher_path = process_workdir.join(".maestro.launcher");
         let mut launcher_handle = OpenOptions::new()
             .append(true)
             .create_new(true)

@@ -286,15 +286,15 @@ impl Executor for SlurmExecutor {
         script.stage_inputs(&mut launcher_handle, &workdir, &self.staging_mode)?;
         writeln!(
             launcher_handle,
-            "./maestro.sh >> maestro.out 2>> maestro.err"
+            "./.maestro.sh >> .maestro.out 2>> .maestro.err"
         )?;
 
         let output = Command::new("sbatch")
             .args([
                 "-o",
-                "maestro.log",
+                ".maestro.log",
                 "-e",
-                "maestro.err",
+                ".maestro.err",
                 "--open-mode=append",
             ])
             .arg(launcher_path)
@@ -387,7 +387,7 @@ impl Executor for SlurmExecutor {
                 } else {
                     writeln!(
                         log_handle,
-                        ":: Job completed with non-zero exit code {c1}:{c2}\nstderr: maestro.err"
+                        ":: Job completed with non-zero exit code {c1}:{c2}\nstderr: .maestro.err"
                     )?;
                     Err(io::Error::other(format!(
                         "Job completed with non-zero exit code. Logs at {}",

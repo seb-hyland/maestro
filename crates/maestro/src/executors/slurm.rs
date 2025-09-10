@@ -290,7 +290,13 @@ impl Executor for SlurmExecutor {
         )?;
 
         let output = Command::new("sbatch")
-            .args(["-o", "maestro.out", "-e", "maestro.err"])
+            .args([
+                "-o",
+                "maestro.log",
+                "-e",
+                "maestro.err",
+                "--open-mode=append",
+            ])
             .arg(launcher_path)
             .current_dir(&workdir)
             .output()?;

@@ -17,8 +17,9 @@ fn main() {
 fn test_workflow() -> io::Result<PathBuf> {
     let test_fasta = PathBuf::from("tester/data/seq1.fasta");
     let test_dir = PathBuf::from("tester/data/");
+    let output_path = PathBuf::from("out.txt");
 
-    let process = process!("tester/scripts/test.sh", test_fasta, test_dir);
+    let process = process!("tester/scripts/test.sh", test_fasta, test_dir, output_path);
     SlurmExecutor::default()
         .with_staging_mode(StagingMode::Copy)
         .with_module("gcc")

@@ -1,9 +1,9 @@
 use crate::{Script, StagingMode, executors::Executor};
 use std::{
-    fs::{File, read_to_string},
+    fs::read_to_string,
     io::{self, Write as _},
     path::PathBuf,
-    process::{Command, Stdio},
+    process::Command,
 };
 
 pub struct LocalExecutor {
@@ -39,7 +39,6 @@ impl Executor for LocalExecutor {
             "./.maestro.sh > .maestro.out 2> .maestro.err"
         )?;
 
-        let log_stderr_path = workdir.join(".maestro.err");
         let output = Command::new(launcher_path)
             .stdout(log_handle.try_clone()?)
             .stderr(log_handle.try_clone()?)
@@ -49,17 +48,13 @@ impl Executor for LocalExecutor {
         if !output.status.success() {
             writeln!(log_handle, ":: Process failed!")?;
             if let Some(exit_code) = output.status.code() {
-                writeln!(log_handle, ":: Exit code: {exit_code}")?;
+                writeln!(log_handle, "Exit code: {exit_code}")?;
             }
-            let stderr = match read_to_string(&log_stderr_path) {
-                Ok(stderr) => stderr,
-                Err(e) => format!("Failed to read .maestro.err: {e:?}"),
-            };
-            writeln!(log_handle, ":: Process stderr:\n{stderr}")?;
+            writeln!(log_handle, "stderr at .maestro.err")?;
             Err(io::Error::other(format!(
                 "Shell process exited with non-zero exit code. Logs at {}; stderr at {}",
                 log_path.display(),
-                log_stderr_path.display()
+                workdir.join(".maestro.err").display()
             )))
         } else {
             writeln!(

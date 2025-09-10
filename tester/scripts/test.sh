@@ -2,4 +2,4 @@
 echo "cat:"
 cat $test_fasta
 echo "tree:"
-# exa --tree $TESTDIR
+tree $test_dir

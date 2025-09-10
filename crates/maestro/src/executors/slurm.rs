@@ -12,6 +12,7 @@ use crate::{Script, StagingMode, executors::Executor};
 pub struct SlurmExecutor {
     poll_rate: Duration,
     staging_mode: StagingMode,
+    modules: Vec<String>,
     config: SlurmConfig,
 }
 
@@ -20,6 +21,7 @@ impl Default for SlurmExecutor {
         Self {
             poll_rate: Duration::from_secs(5),
             staging_mode: StagingMode::Symlink,
+            modules: Vec::new(),
             config: SlurmConfig::default(),
         }
     }
@@ -32,6 +34,15 @@ impl SlurmExecutor {
     }
     pub fn with_staging_mode(mut self, staging_mode: StagingMode) -> Self {
         self.staging_mode = staging_mode;
+        self
+    }
+    pub fn with_module<S: ToString>(mut self, module: S) -> Self {
+        self.modules.push(module.to_string());
+        self
+    }
+    pub fn with_modules<S: ToString, M: AsRef<[S]>>(mut self, modules: M) -> Self {
+        let transformed_modules = modules.as_ref().iter().map(|module| module.to_string());
+        self.modules.extend(transformed_modules);
         self
     }
     pub fn with_config(mut self, config: SlurmConfig) -> Self {
@@ -231,11 +242,10 @@ impl SlurmConfig {
         S2: ToString,
         A: AsRef<[(S1, S2)]>,
     {
-        let transformed_args: Vec<_> = args
+        let transformed_args = args
             .as_ref()
             .iter()
-            .map(|(arg, value)| (arg.to_string(), value.to_string()))
-            .collect();
+            .map(|(arg, value)| (arg.to_string(), value.to_string()));
         self.additional_options.extend(transformed_args);
         self
     }
@@ -284,6 +294,9 @@ impl Executor for SlurmExecutor {
             script.prep_script_workdir()?;
         writeln!(launcher_handle, "{}", self.config)?;
         script.stage_inputs(&mut launcher_handle, &workdir, &self.staging_mode)?;
+        for module_name in self.modules {
+            writeln!(launcher_handle, "module load {module_name}")?;
+        }
         writeln!(
             launcher_handle,
             "./.maestro.sh >> .maestro.out 2>> .maestro.err"

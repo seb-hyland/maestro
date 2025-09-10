@@ -21,6 +21,7 @@ fn test_workflow() -> io::Result<PathBuf> {
     let process = process!("tester/scripts/test.sh", test_fasta, test_dir);
     SlurmExecutor::default()
         .with_staging_mode(StagingMode::Copy)
+        .with_module("gcc")
         .map_config(|config| {
             config
                 .with_account("st-shallam-1")

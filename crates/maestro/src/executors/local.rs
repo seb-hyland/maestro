@@ -1,6 +1,5 @@
 use crate::{Script, StagingMode, executors::Executor};
 use std::{
-    fs::read_to_string,
     io::{self, Write as _},
     path::PathBuf,
     process::Command,

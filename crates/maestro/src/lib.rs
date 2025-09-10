@@ -1,13 +1,13 @@
 use std::{
     fmt::Display,
-    fs::{File, OpenOptions},
+    fs::{File, OpenOptions, create_dir_all},
     io::{self, Write as _},
     ops::Not,
     os::unix::fs::OpenOptionsExt as _,
     path::{Path, PathBuf},
 };
 
-use crate::session::create_process_dir;
+use crate::session::SESSION_WORKDIR;
 
 pub mod executors;
 mod macros;
@@ -44,8 +44,24 @@ impl<'a> Process<'a> {
 
     pub(crate) fn prep_script_workdir(
         &mut self,
-    ) -> Result<(PathBuf, FilePair, FilePair), io::Error> {
-        let process_workdir = create_process_dir()?;
+    ) -> Result<(PathBuf, PathAndHandle, PathAndHandle), io::Error> {
+        let process_workdir = {
+            let session_dir = SESSION_WORKDIR
+                .as_ref()
+                .map_err(|e| io::Error::new(e.kind(), e.to_string()))?;
+            let dir = session_dir.join(self.name);
+            if dir.exists() {
+                return Err(io::Error::new(
+                    io::ErrorKind::DirectoryNotEmpty,
+                    format!(
+                        "Process working directory {} already exists!",
+                        dir.display()
+                    ),
+                ));
+            }
+            create_dir_all(&dir)?;
+            dir
+        };
 
         let script_path = process_workdir.join(".maestro.sh");
         let mut script_file = OpenOptions::new()
@@ -67,7 +83,7 @@ impl<'a> Process<'a> {
             .create_new(true)
             .mode(0o755)
             .open(&launcher_path)?;
-        writeln!(launcher_handle, "#!/bin/bash")?;
+        writeln!(launcher_handle, "#!/bin/bash\nset -euo pipefail")?;
 
         Ok((
             process_workdir,
@@ -77,7 +93,7 @@ impl<'a> Process<'a> {
     }
 
     fn stage_inputs(
-        &self,
+        &'a self,
         launcher: &mut File,
         workdir: &Path,
         staging_mode: &StagingMode,
@@ -107,15 +123,12 @@ impl<'a> Process<'a> {
                 file.canonicalize()?.to_string_lossy().into_owned()
             };
             writeln!(launcher, "export {}=\"{}\"", var, transformed_arg)?;
-            if let Injection::File(f) = arg
-                && f.exists()
-                && stage_inputs
-            {
+            if stage_inputs {
                 writeln!(
                     launcher,
                     "{} \"{}\" \"${}\"",
                     staging_mode,
-                    f.canonicalize()?.display(),
+                    file.canonicalize()?.display(),
                     var
                 )?;
             }

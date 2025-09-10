@@ -1,12 +1,12 @@
 use std::{
     env,
-    fs::{self, create_dir_all},
+    fs::{self},
     io,
     path::PathBuf,
     sync::LazyLock,
 };
 
-use rand::{Rng, distr::Uniform, seq::IndexedRandom};
+use rand::seq::IndexedRandom;
 
 pub(crate) static SESSION_WORKDIR: LazyLock<Result<PathBuf, io::Error>> =
     LazyLock::new(setup_session_workdir);
@@ -33,36 +33,6 @@ fn setup_session_workdir() -> Result<PathBuf, io::Error> {
         session_workdir.display()
     );
     Ok(session_workdir)
-}
-
-pub(crate) fn create_process_dir() -> Result<PathBuf, io::Error> {
-    fn generate_process_path() -> Result<PathBuf, io::Error> {
-        let process_id: String = {
-            let rng = rand::rng();
-            let letter_sample = Uniform::new_inclusive('a', 'z')
-                .expect("Uniform character sampling should not fail!");
-            rng.sample_iter(letter_sample).take(8).collect()
-        };
-        let process_dir = SESSION_WORKDIR
-            .as_ref()
-            .map_err(|e| e.kind())?
-            .join(process_id);
-        Ok(process_dir)
-    }
-    let mut process_dir = generate_process_path()?;
-    // For rare case where hashes are generated identically multiple times
-    // Use bounded iterator; it is almost impossible for this to occur multiple times
-    for _ in 0..3 {
-        if !process_dir.exists() {
-            break;
-        }
-        process_dir = generate_process_path()?;
-    }
-    if process_dir.exists() {
-        panic!("Could not generate a unique process directory hash!")
-    }
-    create_dir_all(&process_dir)?;
-    Ok(process_dir)
 }
 
 const ADJECTIVES: [&str; 100] = [

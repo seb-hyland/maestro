@@ -5,7 +5,7 @@ use maestro::{
     executors::{
         Executor,
         local::LocalExecutor,
-        slurm::{Memory, MemoryConfig, SlurmExecutor, SlurmTime},
+        // slurm::{Memory, MemoryConfig, SlurmExecutor, SlurmTime},
     },
 };
 use maestro_macros::process;
@@ -15,12 +15,22 @@ fn main() {
     // test_workflow_inline().unwrap();
 }
 
-fn test_workflow() -> io::Result<PathBuf> {
+fn test_workflow() -> io::Result<Vec<PathBuf>> {
     let test_fasta = PathBuf::from("tester/data/seq1.fasta");
     let test_dir = PathBuf::from("tester/data/");
     let output_path = "out.txt";
 
-    let process = process!("tester/scripts/test.sh", test_fasta, test_dir, output_path);
+    let process = process! {
+        name = "cat_seq",
+        inputs = [
+            test_fasta,
+            test_dir
+        ],
+        outputs = [
+            output_path
+        ],
+        process = "tester/scripts/test.sh"
+    };
     // SlurmExecutor::default()
     //     .with_staging_mode(StagingMode::None)
     //     .with_module("gcc")
@@ -34,7 +44,7 @@ fn test_workflow() -> io::Result<PathBuf> {
     //     })
     //     .exe(process)
     LocalExecutor::default()
-        .with_staging_mode(StagingMode::None)
+        .with_staging_mode(StagingMode::Symlink)
         .exe(process)
 }
 

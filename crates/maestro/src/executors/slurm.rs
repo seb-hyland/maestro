@@ -7,7 +7,7 @@ use std::{
     time::Duration,
 };
 
-use crate::{Script, StagingMode, executors::Executor};
+use crate::{CheckTime, Process, StagingMode, executors::Executor};
 
 pub struct SlurmExecutor {
     poll_rate: Duration,
@@ -289,7 +289,7 @@ impl Display for SlurmConfig {
 }
 
 impl Executor for SlurmExecutor {
-    fn exe(self, mut script: Script) -> io::Result<PathBuf> {
+    fn exe<'a>(self, mut script: Process<'a>) -> io::Result<Vec<PathBuf>> {
         let (workdir, (log_path, mut log_handle), (launcher_path, mut launcher_handle)) =
             script.prep_script_workdir()?;
         writeln!(launcher_handle, "{}", self.config)?;
@@ -397,25 +397,33 @@ impl Executor for SlurmExecutor {
             Some((c1, c2)) => {
                 if c1 == 0 && c2 == 0 {
                     writeln!(log_handle, ":: Job completed successfully!")?;
-                    Ok(workdir)
                 } else {
                     writeln!(
                         log_handle,
                         ":: Job completed with non-zero exit code {c1}:{c2}\nstderr: .maestro.err"
                     )?;
-                    Err(io::Error::other(format!(
+                    return Err(io::Error::other(format!(
                         "Job completed with non-zero exit code. Logs at {}",
                         log_path.display()
-                    )))
+                    )));
                 }
             }
             None => {
                 writeln!(log_handle, ":: Failed to parse job status")?;
-                Err(io::Error::other(format!(
+                return Err(io::Error::other(format!(
                     "Failed to parse job status. Logs at {}",
                     log_path.display()
-                )))
+                )));
             }
-        }
+        };
+
+        script.check_files(CheckTime::Output, Some(&workdir))?;
+        let mut outputs: Vec<_> = script
+            .outputs
+            .iter()
+            .map(|(_, p)| workdir.join(p))
+            .collect();
+        outputs.insert(0, workdir);
+        Ok(outputs)
     }
 }

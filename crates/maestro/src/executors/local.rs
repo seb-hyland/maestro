@@ -1,4 +1,4 @@
-use crate::{Script, StagingMode, executors::Executor};
+use crate::{CheckTime, Process, StagingMode, executors::Executor};
 use std::{
     io::{self, Write as _},
     path::PathBuf,
@@ -25,7 +25,7 @@ impl LocalExecutor {
 }
 
 impl Executor for LocalExecutor {
-    fn exe(self, mut script: Script) -> io::Result<PathBuf> {
+    fn exe(self, mut script: Process) -> io::Result<Vec<PathBuf>> {
         let (workdir, (log_path, mut log_handle), (launcher_path, mut launcher_handle)) =
             script.prep_script_workdir()?;
         script.stage_inputs(&mut launcher_handle, &workdir, &self.staging_mode)?;
@@ -35,7 +35,7 @@ impl Executor for LocalExecutor {
         )?;
         writeln!(
             launcher_handle,
-            "./.maestro.sh >> .maestro.out 2>> .maestro.err"
+            "source ./.maestro.sh >> .maestro.out 2>> .maestro.err"
         )?;
         drop(launcher_handle);
 
@@ -51,17 +51,25 @@ impl Executor for LocalExecutor {
                 writeln!(log_handle, "Exit code: {exit_code}")?;
             }
             writeln!(log_handle, "stderr at .maestro.err")?;
-            Err(io::Error::other(format!(
+            return Err(io::Error::other(format!(
                 "Shell process exited with non-zero exit code. Logs at {}; stderr at {}",
                 log_path.display(),
                 workdir.join(".maestro.err").display()
-            )))
+            )));
         } else {
             writeln!(
                 log_handle,
                 ":: Process terminated successfully with exit code 0"
             )?;
-            Ok(workdir)
         }
+
+        script.check_files(CheckTime::Output, Some(&workdir))?;
+        let mut outputs: Vec<_> = script
+            .outputs
+            .iter()
+            .map(|(_, p)| workdir.join(p))
+            .collect();
+        outputs.insert(0, workdir);
+        Ok(outputs)
     }
 }

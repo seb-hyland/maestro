@@ -4,6 +4,7 @@ use maestro::{
     StagingMode,
     executors::{
         Executor,
+        local::LocalExecutor,
         slurm::{Memory, MemoryConfig, SlurmExecutor, SlurmTime},
     },
 };
@@ -17,20 +18,23 @@ fn main() {
 fn test_workflow() -> io::Result<PathBuf> {
     let test_fasta = PathBuf::from("tester/data/seq1.fasta");
     let test_dir = PathBuf::from("tester/data/");
-    let output_path = PathBuf::from("out.txt");
+    let output_path = "out.txt";
 
     let process = process!("tester/scripts/test.sh", test_fasta, test_dir, output_path);
-    SlurmExecutor::default()
-        .with_staging_mode(StagingMode::Copy)
-        .with_module("gcc")
-        .map_config(|config| {
-            config
-                .with_account("st-shallam-1")
-                .with_nodes(1)
-                .with_cpus(1)
-                .with_memory(MemoryConfig::PerNode(Memory::from_gb(8)))
-                .with_time(SlurmTime::from_hours(1))
-        })
+    // SlurmExecutor::default()
+    //     .with_staging_mode(StagingMode::None)
+    //     .with_module("gcc")
+    //     .map_config(|config| {
+    //         config
+    //             .with_account("st-shallam-1")
+    //             .with_nodes(1)
+    //             .with_cpus(1)
+    //             .with_memory(MemoryConfig::PerNode(Memory::from_gb(8)))
+    //             .with_time(SlurmTime::from_hours(1))
+    //     })
+    //     .exe(process)
+    LocalExecutor::default()
+        .with_staging_mode(StagingMode::None)
         .exe(process)
 }
 

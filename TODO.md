@@ -1,0 +1,2 @@
+- [] Fix local execution with no copy
+- [] Fix slurm drop impl

@@ -301,6 +301,7 @@ impl Executor for SlurmExecutor {
             launcher_handle,
             "./.maestro.sh >> .maestro.out 2>> .maestro.err"
         )?;
+        drop(launcher_handle);
 
         let output = Command::new("sbatch")
             .args([

@@ -37,6 +37,7 @@ impl Executor for LocalExecutor {
             launcher_handle,
             "./.maestro.sh >> .maestro.out 2>> .maestro.err"
         )?;
+        drop(launcher_handle);
 
         let output = Command::new(launcher_path)
             .stdout(log_handle.try_clone()?)

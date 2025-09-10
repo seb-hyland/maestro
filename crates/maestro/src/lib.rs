@@ -61,6 +61,7 @@ impl<'a> Script<'a> {
         staging_mode: &StagingMode,
     ) -> io::Result<()> {
         let input_dir = PathBuf::from("maestro_inputs/");
+        let stage_inputs = matches!(staging_mode, StagingMode::None).not();
         writeln!(
             launcher,
             "echo \":: Process workdir initialized at {}\"\necho \":: Staging inputs to {}\"",
@@ -72,7 +73,7 @@ impl<'a> Script<'a> {
             let var = var.split_whitespace().collect::<Vec<_>>().join("_");
             let transformed_arg = match arg {
                 Injection::File(f) => {
-                    if f.exists() {
+                    if f.exists() && stage_inputs {
                         let file_name = f.file_name().ok_or(io::Error::new(
                             io::ErrorKind::NotFound,
                             format!("Could not resolve file name of {}", f.display()),
@@ -81,7 +82,7 @@ impl<'a> Script<'a> {
                             input_dir.join(format!("[{}]{}", var, file_name.display()));
                         &destination.to_string_lossy().into_owned()
                     } else {
-                        &f.to_string_lossy().into_owned()
+                        &f.canonicalize()?.to_string_lossy().into_owned()
                     }
                 }
                 Injection::Param(p) => p,
@@ -89,7 +90,7 @@ impl<'a> Script<'a> {
             writeln!(launcher, "export {}=\"{}\"", var, transformed_arg)?;
             if let Injection::File(f) = arg
                 && f.exists()
-                && matches!(staging_mode, StagingMode::None).not()
+                && stage_inputs
             {
                 writeln!(
                     launcher,

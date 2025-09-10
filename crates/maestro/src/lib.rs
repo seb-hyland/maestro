@@ -14,7 +14,7 @@ mod macros;
 mod session;
 
 pub type PathArg<'a> = (&'a str, PathBuf);
-pub type StrArg<'a> = (&'a str, &'a str);
+pub type StrArg<'a> = (&'a str, String);
 
 pub struct Process<'a> {
     name: &'a str,

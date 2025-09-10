@@ -162,7 +162,10 @@ pub fn process(input: TokenStream) -> TokenStream {
     }
     let input_pairs = into_pairs(definition.inputs).into_iter();
     let output_pairs = into_pairs(definition.outputs).into_iter();
-    let arg_pairs = into_pairs(definition.args).into_iter();
+    let arg_pairs = definition.args.into_iter().map(|ident| {
+        let lit = LitStr::new(&ident.to_string(), ident.span());
+        quote! { (#lit, #ident.to_string())}
+    });
 
     fn generate_hashed_name() -> String {
         let rng = rand::rng();

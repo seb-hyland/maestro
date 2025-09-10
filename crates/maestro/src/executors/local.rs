@@ -31,11 +31,11 @@ impl Executor for LocalExecutor {
         script.stage_inputs(&mut launcher_handle, &workdir, &self.staging_mode)?;
         writeln!(
             launcher_handle,
-            "echo -e \":: Launching local process\\nstdout: .maestro.out\\nstderr: .maestro.err\""
+            "echo -e \":: Launching local process\\nstdout: maestro.out\\nstderr: maestro.err\""
         )?;
         writeln!(
             launcher_handle,
-            "./.maestro.sh > .maestro.out 2> .maestro.err"
+            "./maestro.sh >> maestro.out 2>> maestro.err"
         )?;
 
         let output = Command::new(launcher_path)
@@ -49,11 +49,11 @@ impl Executor for LocalExecutor {
             if let Some(exit_code) = output.status.code() {
                 writeln!(log_handle, "Exit code: {exit_code}")?;
             }
-            writeln!(log_handle, "stderr at .maestro.err")?;
+            writeln!(log_handle, "stderr at maestro.err")?;
             Err(io::Error::other(format!(
                 "Shell process exited with non-zero exit code. Logs at {}; stderr at {}",
                 log_path.display(),
-                workdir.join(".maestro.err").display()
+                workdir.join("maestro.err").display()
             )))
         } else {
             writeln!(

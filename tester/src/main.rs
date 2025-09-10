@@ -1,15 +1,13 @@
 use std::{io, path::PathBuf};
 
 use maestro::{
-    OutputMapper, StagingMode, assert_exists,
+    StagingMode,
     executors::{
         Executor,
-        local::LocalExecutor,
         slurm::{Memory, MemoryConfig, SlurmExecutor, SlurmTime},
     },
-    paths,
 };
-use maestro_macros::{inline_process, process};
+use maestro_macros::process;
 
 fn main() {
     test_workflow().unwrap();

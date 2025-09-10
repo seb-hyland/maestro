@@ -11,17 +11,19 @@ use maestro::{
 use maestro_macros::process;
 
 fn main() {
-    test_workflow().unwrap();
+    test_workflow(13).unwrap();
+    test_workflow(0).unwrap();
+    test_workflow(5).unwrap();
     // test_workflow_inline().unwrap();
 }
 
-fn test_workflow() -> io::Result<Vec<PathBuf>> {
+fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
     let test_fasta = PathBuf::from("tester/data/seq1.fasta");
     let test_dir = PathBuf::from("tester/data/");
     let output_path = String::from("out.txt");
 
     let process = process! {
-        name = "cat_seq",
+        name = format!("test_{run}"),
         inputs = [
             test_fasta,
             test_dir

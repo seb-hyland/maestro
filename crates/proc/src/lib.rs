@@ -4,7 +4,7 @@ use quote::quote;
 use rand::{Rng as _, distr::Uniform};
 use std::{fs, path::Path};
 use syn::{
-    Ident, LitBool, LitStr, bracketed,
+    Expr, Ident, LitBool, LitStr, bracketed,
     parse::Parse,
     parse_macro_input,
     punctuated::Punctuated,
@@ -15,7 +15,7 @@ use syn::{
 // mod container;
 
 struct ProcessDefinition {
-    name: Option<LitStr>,
+    name: Option<Expr>,
     inputs: Punctuated<Ident, Comma>,
     outputs: Punctuated<Ident, Comma>,
     args: Punctuated<Ident, Comma>,
@@ -35,7 +35,7 @@ mod kw {
 
 impl Parse for ProcessDefinition {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let name: Option<LitStr> = if input.peek(kw::name) {
+        let name: Option<Expr> = if input.peek(kw::name) {
             let _: kw::name = input.parse()?;
             let _: Eq = input.parse()?;
             let name = input.parse()?;
@@ -173,14 +173,17 @@ pub fn process(input: TokenStream) -> TokenStream {
             Uniform::new_inclusive('a', 'z').expect("Uniform character sampling should not fail!");
         rng.sample_iter(letter_sample).take(10).collect()
     }
-    let name = definition
-        .name
-        .map(|name_lit| name_lit.value())
-        .unwrap_or_else(generate_hashed_name);
+    let name = match definition.name {
+        Some(expr) => quote! {{ #expr }},
+        None => {
+            let name = generate_hashed_name();
+            quote! { #name }
+        }
+    };
 
     quote! {
         maestro::Process::new(
-            #name,
+            #name.to_string(),
             #process_lit,
             vec![#(#input_pairs),*],
             vec![#(#output_pairs),*],

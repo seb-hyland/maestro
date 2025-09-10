@@ -17,7 +17,7 @@ pub type PathArg<'a> = (&'a str, PathBuf);
 pub type StrArg<'a> = (&'a str, String);
 
 pub struct Process<'a> {
-    name: &'a str,
+    name: String,
     script: &'a str,
     inputs: Vec<PathArg<'a>>,
     outputs: Vec<PathArg<'a>>,
@@ -27,7 +27,7 @@ pub struct Process<'a> {
 type PathAndHandle = (PathBuf, File);
 impl<'a> Process<'a> {
     pub fn new(
-        name: &'a str,
+        name: String,
         script: &'a str,
         inputs: Vec<PathArg<'a>>,
         outputs: Vec<PathArg<'a>>,
@@ -49,7 +49,7 @@ impl<'a> Process<'a> {
             let session_dir = SESSION_WORKDIR
                 .as_ref()
                 .map_err(|e| io::Error::new(e.kind(), e.to_string()))?;
-            let mut dir = session_dir.join(self.name);
+            let mut dir = session_dir.join(&self.name);
             let mut idx = 1;
             while dir.exists() {
                 let dir_name = format!("{}_{}", self.name, idx);

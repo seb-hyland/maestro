@@ -150,20 +150,20 @@ impl<'a> Process<'a> {
         };
         let non_existent_files: Vec<_> = files
             .iter()
-            .filter(|(_, p)| {
+            .filter_map(|(_, p)| {
                 let path = if let Some(dir) = maybe_dir {
-                    &dir.join(p)
+                    dir.join(p)
                 } else {
-                    p
+                    p.clone()
                 };
-                !path.exists()
+                if path.exists() { None } else { Some(path) }
             })
             .collect();
         // Some non-existent file
         if !non_existent_files.is_empty() {
             let file_names = non_existent_files
                 .into_iter()
-                .map(|(_, p)| p.to_string_lossy())
+                .map(|p| p.to_string_lossy().to_string())
                 .collect::<Vec<_>>()
                 .join(", ");
             let check_time = match time {
@@ -180,6 +180,14 @@ impl<'a> Process<'a> {
         }
 
         Ok(())
+    }
+
+    fn write_execution(mut launcher_handle: File, error_handling: bool) -> io::Result<()> {
+        writeln!(
+            launcher_handle,
+            "{}./.maestro.sh >> .maestro.out 2>> .maestro.err",
+            if error_handling { "source " } else { "" }
+        )
     }
 }
 

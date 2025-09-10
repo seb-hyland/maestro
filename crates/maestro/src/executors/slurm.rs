@@ -12,6 +12,7 @@ use crate::{CheckTime, Process, StagingMode, executors::Executor};
 pub struct SlurmExecutor {
     poll_rate: Duration,
     staging_mode: StagingMode,
+    error_handling: bool,
     modules: Vec<String>,
     config: SlurmConfig,
 }
@@ -21,6 +22,7 @@ impl Default for SlurmExecutor {
         Self {
             poll_rate: Duration::from_secs(5),
             staging_mode: StagingMode::Symlink,
+            error_handling: true,
             modules: Vec::new(),
             config: SlurmConfig::default(),
         }
@@ -34,6 +36,10 @@ impl SlurmExecutor {
     }
     pub fn with_staging_mode(mut self, staging_mode: StagingMode) -> Self {
         self.staging_mode = staging_mode;
+        self
+    }
+    pub fn with_error_handling(mut self, error_handling: bool) -> Self {
+        self.error_handling = error_handling;
         self
     }
     pub fn with_module<S: ToString>(mut self, module: S) -> Self {
@@ -289,19 +295,15 @@ impl Display for SlurmConfig {
 }
 
 impl Executor for SlurmExecutor {
-    fn exe<'a>(self, mut script: Process<'a>) -> io::Result<Vec<PathBuf>> {
+    fn exe<'a>(self, mut process: Process<'a>) -> io::Result<Vec<PathBuf>> {
         let (workdir, (log_path, mut log_handle), (launcher_path, mut launcher_handle)) =
-            script.prep_script_workdir()?;
+            process.prep_script_workdir()?;
         writeln!(launcher_handle, "{}", self.config)?;
-        script.stage_inputs(&mut launcher_handle, &workdir, &self.staging_mode)?;
+        process.stage_inputs(&mut launcher_handle, &workdir, &self.staging_mode)?;
         for module_name in self.modules {
             writeln!(launcher_handle, "module load {module_name}")?;
         }
-        writeln!(
-            launcher_handle,
-            "./.maestro.sh >> .maestro.out 2>> .maestro.err"
-        )?;
-        drop(launcher_handle);
+        Process::write_execution(launcher_handle, self.error_handling)?;
 
         let output = Command::new("sbatch")
             .args([
@@ -417,8 +419,8 @@ impl Executor for SlurmExecutor {
             }
         };
 
-        script.check_files(CheckTime::Output, Some(&workdir))?;
-        let mut outputs: Vec<_> = script
+        process.check_files(CheckTime::Output, Some(&workdir))?;
+        let mut outputs: Vec<_> = process
             .outputs
             .iter()
             .map(|(_, p)| workdir.join(p))

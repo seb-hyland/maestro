@@ -80,7 +80,7 @@ impl<'a> Process<'a> {
             .create_new(true)
             .mode(0o755)
             .open(&launcher_path)?;
-        writeln!(launcher_handle, "#!/bin/bash\nset -euo pipefail")?;
+        writeln!(launcher_handle, "#!/bin/bash")?;
 
         Ok((
             process_workdir,
@@ -95,6 +95,8 @@ impl<'a> Process<'a> {
         workdir: &Path,
         staging_mode: &StagingMode,
     ) -> io::Result<()> {
+        writeln!(launcher, "set -euo pipefail")?;
+
         let input_dir = PathBuf::from("maestro_inputs/");
         let stage_inputs = matches!(staging_mode, StagingMode::None).not();
         writeln!(

@@ -34,7 +34,7 @@ fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
         inline = true,
         process = r#"
         cat $test_fasta
-        cat $test_dir/seq2.fast
+        cat $test_dir/seq2.fasta
         tree $test_dir > $output_path
         "#
     };

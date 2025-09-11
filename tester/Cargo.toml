@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-maestro = { path = "../crates/maestro" }
+maestro = { path = "../crates/lib" }
 maestro-macros = { path = "../crates/proc" }
 
 [profile.dev]

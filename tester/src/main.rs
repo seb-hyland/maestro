@@ -5,7 +5,7 @@ use maestro::{
     executors::{
         Executor,
         local::LocalExecutor,
-        // slurm::{Memory, MemoryConfig, SlurmExecutor, SlurmTime},
+        slurm::{Memory, MemoryConfig, SlurmExecutor, SlurmTime},
     },
 };
 use maestro_macros::process;
@@ -38,22 +38,22 @@ fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
         tree $test_dir > $output_path
         "#
     };
-    // SlurmExecutor::default()
-    //     .with_staging_mode(StagingMode::None)
-    //     .with_module("gcc")
-    //     .map_config(|config| {
-    //         config
-    //             .with_account("st-shallam-1")
-    //             .with_nodes(1)
-    //             .with_cpus(1)
-    //             .with_memory(MemoryConfig::PerNode(Memory::from_gb(8)))
-    //             .with_time(SlurmTime::from_hours(1))
-    //     })
-    //     .exe(process)
-    LocalExecutor::default()
-        .with_error_handling(false)
-        .with_staging_mode(StagingMode::Symlink)
+    SlurmExecutor::default()
+        .with_staging_mode(StagingMode::None)
+        .with_module("gcc")
+        .map_config(|config| {
+            config
+                .with_account("st-shallam-1")
+                .with_nodes(1)
+                .with_cpus(1)
+                .with_memory(MemoryConfig::PerNode(Memory::from_gb(8)))
+                .with_time(SlurmTime::from_hours(1))
+        })
         .exe(process)
+    // LocalExecutor::default()
+    //     .with_error_handling(false)
+    //     .with_staging_mode(StagingMode::Symlink)
+    //     .exe(process)
 }
 
 // fn test_workflow_inline() -> io::Result<()> {

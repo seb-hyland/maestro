@@ -5,6 +5,7 @@ use std::{
     process::Command,
 };
 
+#[derive(Clone, Copy)]
 pub struct LocalExecutor {
     staging_mode: StagingMode,
     error_handling: bool,
@@ -31,7 +32,7 @@ impl LocalExecutor {
 }
 
 impl Executor for LocalExecutor {
-    fn exe(self, mut process: Process) -> io::Result<Vec<PathBuf>> {
+    fn exe(&self, mut process: Process) -> io::Result<Vec<PathBuf>> {
         let (workdir, (log_path, mut log_handle), (launcher_path, mut launcher_handle)) =
             process.prep_script_workdir()?;
         process.stage_inputs(&mut launcher_handle, &workdir, &self.staging_mode)?;

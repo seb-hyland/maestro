@@ -9,6 +9,7 @@ use std::{
 
 use crate::{CheckTime, Process, StagingMode, executors::Executor};
 
+#[derive(Clone)]
 pub struct SlurmExecutor {
     poll_rate: Duration,
     staging_mode: StagingMode,
@@ -295,12 +296,12 @@ impl Display for SlurmConfig {
 }
 
 impl Executor for SlurmExecutor {
-    fn exe<'a>(self, mut process: Process) -> io::Result<Vec<PathBuf>> {
+    fn exe(&self, mut process: Process) -> io::Result<Vec<PathBuf>> {
         let (workdir, (log_path, mut log_handle), (launcher_path, mut launcher_handle)) =
             process.prep_script_workdir()?;
         writeln!(launcher_handle, "{}", self.config)?;
         process.stage_inputs(&mut launcher_handle, &workdir, &self.staging_mode)?;
-        for module_name in self.modules {
+        for module_name in &self.modules {
             writeln!(launcher_handle, "module load {module_name}")?;
         }
         Process::write_execution(launcher_handle, self.error_handling)?;

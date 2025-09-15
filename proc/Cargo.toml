@@ -12,6 +12,8 @@ proc-macro = true
 proc-macro2 = "1.0.95"
 quote = "1.0.40"
 rand = "0.9.2"
-# regex = "1.11.1"
 syn = "2.0.104"
-# tokio = { version = "1.45.1", features = ["rt-multi-thread"] }
+
+[features]
+default = []
+check_scripts = []

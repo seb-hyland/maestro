@@ -1,14 +1,8 @@
-use std::{io, path::PathBuf};
-
-use maestro::{
-    StagingMode,
-    executors::{
-        Executor,
-        local::LocalExecutor,
-        slurm::{Memory, MemoryConfig, SlurmExecutor, SlurmTime},
-    },
+use maestro::prelude::*;
+use std::{
+    io,
+    path::{Path, PathBuf},
 };
-use maestro_macros::process;
 
 fn main() {
     test_workflow(13).unwrap();
@@ -18,9 +12,9 @@ fn main() {
 }
 
 fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
-    let test_fasta = PathBuf::from("tester/data/seq1.fasta");
-    let test_dir = PathBuf::from("tester/data/");
-    let output_path = String::from("out.txt");
+    let test_fasta = Path::new("lib/examples/data/seq1.fasta");
+    let test_dir = Path::new("lib/examples/data/");
+    let output_path = Path::new("out.txt");
 
     let process = process! {
         name = format!("test_{run}"),
@@ -33,9 +27,10 @@ fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
         ],
         inline = true,
         process = r#"
-        cat $test_fasta
-        cat $test_dir/seq2.fasta
-        tree $test_dir > $output_path
+        cat "$test_fasta"
+        cat "$test_dir"/seq2.fasta
+        tree "$test_dir"
+        > "$output_path"
         "#
     };
     SlurmExecutor::default()

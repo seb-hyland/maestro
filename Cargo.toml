@@ -1,4 +1,3 @@
 [workspace]
 resolver = "3"
-members = ["crates/proc", "crates/lib", "tester"]
-default_members = ["tester"]
+members = ["proc", "lib", "py"]

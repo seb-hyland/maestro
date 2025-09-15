@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     fmt::Display,
     fs::{File, OpenOptions, create_dir_all},
     io::{self, Write as _},
@@ -11,27 +12,28 @@ use crate::session::SESSION_WORKDIR;
 
 pub mod executors;
 mod macros;
+pub mod prelude;
 mod session;
 
-pub type PathArg<'a> = (&'a str, PathBuf);
-pub type StrArg<'a> = (&'a str, String);
+pub type PathArg = (Cow<'static, str>, PathBuf);
+pub type StrArg = (Cow<'static, str>, String);
 
-pub struct Process<'a> {
+pub struct Process {
     name: String,
-    script: &'a str,
-    inputs: Vec<PathArg<'a>>,
-    outputs: Vec<PathArg<'a>>,
-    args: Vec<StrArg<'a>>,
+    script: Cow<'static, str>,
+    inputs: Vec<PathArg>,
+    outputs: Vec<PathArg>,
+    args: Vec<StrArg>,
 }
 
 type PathAndHandle = (PathBuf, File);
-impl<'a> Process<'a> {
+impl Process {
     pub fn new(
         name: String,
-        script: &'a str,
-        inputs: Vec<PathArg<'a>>,
-        outputs: Vec<PathArg<'a>>,
-        args: Vec<StrArg<'a>>,
+        script: Cow<'static, str>,
+        inputs: Vec<PathArg>,
+        outputs: Vec<PathArg>,
+        args: Vec<StrArg>,
     ) -> Self {
         Process {
             name,
@@ -90,7 +92,7 @@ impl<'a> Process<'a> {
     }
 
     fn stage_inputs(
-        &'a self,
+        &self,
         launcher: &mut File,
         workdir: &Path,
         staging_mode: &StagingMode,

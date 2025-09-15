@@ -46,8 +46,8 @@ impl SlurmExecutor {
         self.modules.push(module.to_string());
         self
     }
-    pub fn with_modules<S: ToString, M: AsRef<[S]>>(mut self, modules: M) -> Self {
-        let transformed_modules = modules.as_ref().iter().map(|module| module.to_string());
+    pub fn with_modules<S: ToString, M: IntoIterator<Item = S>>(mut self, modules: M) -> Self {
+        let transformed_modules = modules.into_iter().map(|module| module.to_string());
         self.modules.extend(transformed_modules);
         self
     }
@@ -295,7 +295,7 @@ impl Display for SlurmConfig {
 }
 
 impl Executor for SlurmExecutor {
-    fn exe<'a>(self, mut process: Process<'a>) -> io::Result<Vec<PathBuf>> {
+    fn exe<'a>(self, mut process: Process) -> io::Result<Vec<PathBuf>> {
         let (workdir, (log_path, mut log_handle), (launcher_path, mut launcher_handle)) =
             process.prep_script_workdir()?;
         writeln!(launcher_handle, "{}", self.config)?;

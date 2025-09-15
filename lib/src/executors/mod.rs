@@ -5,5 +5,5 @@ pub mod local;
 pub mod slurm;
 
 pub trait Executor {
-    fn exe<'a>(self, script: Process<'a>) -> io::Result<Vec<PathBuf>>;
+    fn exe(self, script: Process) -> io::Result<Vec<PathBuf>>;
 }

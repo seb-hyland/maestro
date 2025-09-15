@@ -11,7 +11,8 @@ use syn::{
     token::{Comma, Eq},
 };
 
-// mod checker;
+#[cfg(feature = "check_scripts")]
+mod checker;
 // mod container;
 
 struct ProcessDefinition {
@@ -103,9 +104,12 @@ pub fn process(input: TokenStream) -> TokenStream {
 
     let literal = definition.literal;
     let literal_value = literal.value();
+
+    let mut has_shebang = true;
     let process = if definition.inline {
         let trimmed_lit = literal_value.trim();
         if !trimmed_lit.starts_with("#!") {
+            has_shebang = false;
             String::from("#!/bin/bash\n") + trimmed_lit
         } else {
             trimmed_lit.to_string()
@@ -134,30 +138,41 @@ pub fn process(input: TokenStream) -> TokenStream {
         }
     };
 
-    // Make a copy and append environment variables to stop shellcheck yapping abt undefined vars
-    // let mut presented_contents = file_contents.clone();
-    // env_vars
-    //     .iter()
-    //     .map(|ident| ident.to_string())
-    //     .for_each(|name| {
-    //         let script_injection = format!("{name}=\"\"\n");
-    //         presented_contents.push_str(&script_injection);
-    //     });
+    #[cfg(feature = "check_scripts")]
+    {
+        // Make a copy and append environment variables to stop shellcheck yapping abt undefined vars
+        let mut presented_contents = process.clone();
+        println!("pre: {presented_contents}");
+        let mut inject = |arg: &Ident| presented_contents.push_str(&format!("\n{arg}=\"\""));
+        for input in &definition.inputs {
+            inject(input);
+        }
+        for output in &definition.outputs {
+            inject(output);
+        }
+        for arg in &definition.args {
+            inject(arg);
+        }
+        println!("post: {presented_contents}");
 
-    // if let Err((msg, e)) = checker::run_shellcheck(&presented_contents, Some(&path)) {
-    //     abort! {
-    //         path_lit.span(),
-    //         "{}\n{}",
-    //         msg,
-    //         e
-    //     }
-    // }
+        let path = if definition.inline {
+            None
+        } else {
+            Some(literal_value.as_str())
+        };
+
+        if let Err((msg, e)) = checker::run_shellcheck(&presented_contents, path, has_shebang) {
+            return syn::Error::new(literal.span(), format!("{msg}\n{e}"))
+                .into_compile_error()
+                .into();
+        }
+    }
 
     let process_lit = LitStr::new(&process, literal.span());
     fn into_pairs(args: Punctuated<Ident, Comma>) -> impl IntoIterator<Item = TokenStream2> {
         args.into_iter().map(|ident| {
             let lit = LitStr::new(&ident.to_string(), ident.span());
-            quote! { (#lit, PathBuf::from(#ident))}
+            quote! { (::std::borrow::Cow::Borrowed(#lit), PathBuf::from(#ident))}
         })
     }
     let input_pairs = into_pairs(definition.inputs).into_iter();
@@ -184,7 +199,7 @@ pub fn process(input: TokenStream) -> TokenStream {
     quote! {
         maestro::Process::new(
             #name.to_string(),
-            #process_lit,
+            ::std::borrow::Cow::Borrowed(#process_lit),
             vec![#(#input_pairs),*],
             vec![#(#output_pairs),*],
             vec![#(#arg_pairs),*]

@@ -18,6 +18,7 @@ mod session;
 pub type PathArg = (Cow<'static, str>, PathBuf);
 pub type StrArg = (Cow<'static, str>, String);
 
+#[derive(Clone)]
 pub struct Process {
     name: String,
     script: Cow<'static, str>,

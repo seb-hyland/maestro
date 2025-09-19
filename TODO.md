@@ -1,2 +1,3 @@
-- [] Fix local execution with no copy
+- [X] Fix local execution with no copy
 - [] Fix slurm drop impl
+- [] Make container part of Process

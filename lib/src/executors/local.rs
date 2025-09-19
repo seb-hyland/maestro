@@ -1,4 +1,4 @@
-use crate::{CheckTime, Process, StagingMode, executors::Executor};
+use crate::{CheckTime, LP, Process, StagingMode, executors::Executor};
 use std::{
     io::{self, Write as _},
     path::PathBuf,
@@ -38,7 +38,7 @@ impl Executor for LocalExecutor {
         process.stage_inputs(&mut launcher_handle, &workdir, &self.staging_mode)?;
         writeln!(
             launcher_handle,
-            "echo -e \":: Launching local process\\nstdout: .maestro.out\\nstderr: .maestro.err\""
+            "echo -e \"{LP} Launching local process\\nstdout: .maestro.out\\nstderr: .maestro.err\""
         )?;
         Process::write_execution(launcher_handle, self.error_handling)?;
 
@@ -49,7 +49,7 @@ impl Executor for LocalExecutor {
             .output()?;
 
         if !output.status.success() {
-            writeln!(log_handle, ":: Process failed!")?;
+            writeln!(log_handle, "{LP} Process failed!")?;
             if let Some(exit_code) = output.status.code() {
                 writeln!(log_handle, "Exit code: {exit_code}")?;
             }

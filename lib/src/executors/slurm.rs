@@ -7,7 +7,7 @@ use std::{
     time::Duration,
 };
 
-use crate::{CheckTime, Process, StagingMode, executors::Executor};
+use crate::{CheckTime, LP, Process, StagingMode, executors::Executor};
 
 #[derive(Clone)]
 pub struct SlurmExecutor {
@@ -318,6 +318,17 @@ impl Executor for SlurmExecutor {
             .current_dir(&workdir)
             .output()?;
 
+        struct SlurmJobGuard<'a> {
+            job_id: Option<&'a str>,
+        }
+        impl<'a> Drop for SlurmJobGuard<'a> {
+            fn drop(&mut self) {
+                if let Some(id) = &self.job_id {
+                    let _ = Command::new("scancel").arg(id).status();
+                }
+            }
+        }
+
         let job_id = if output.status.success() {
             let stdout = String::from_utf8_lossy(&output.stdout);
             let job_id = stdout
@@ -329,10 +340,10 @@ impl Executor for SlurmExecutor {
                     format!("Failed to parse sbatch output into a job code: {stdout}"),
                 ));
             match job_id {
-                Ok(id) => writeln!(log_handle, ":: Job submitted successfully! Id: {id}"),
+                Ok(id) => writeln!(log_handle, "{LP} Job submitted successfully! Id: {id}"),
                 Err(_) => writeln!(
                     log_handle,
-                    ":: Failed to parse sbatch output into a job id\nstdout: {}",
+                    "{LP} Failed to parse sbatch output into a job id\nstdout: {}",
                     stdout
                 ),
             }?;
@@ -346,12 +357,15 @@ impl Executor for SlurmExecutor {
             let stderr = String::from_utf8_lossy(&output.stderr);
             writeln!(
                 log_handle,
-                ":: Job failed to submit via sbatch!\n{error_code}stderr: {stderr}",
+                "{LP} Job failed to submit via sbatch!\n{error_code}stderr: {stderr}",
             )?;
             return Err(io::Error::other(format!(
                 "Job did not submit successfully. Logs at {}",
                 log_path.display()
             )));
+        };
+        let mut job_guard = SlurmJobGuard {
+            job_id: Some(&job_id),
         };
 
         let mut process_started = false;
@@ -377,6 +391,7 @@ impl Executor for SlurmExecutor {
             thread::sleep(self.poll_rate);
         }
 
+        job_guard.job_id = None;
         // Process start was never read
         if !process_started {
             process_started_msg()?;
@@ -385,7 +400,7 @@ impl Executor for SlurmExecutor {
             .args(["-j", job_id.as_str(), "-o", "JobID,JobName,ExitCode,Elapsed,Start,End,TotalCPU,AveCPU,MaxRSS,AveRSS,MaxVMSize,AveVMSize"])
             .output()?;
         let stdout = String::from_utf8_lossy(&job_info.stdout);
-        writeln!(log_handle, ":: Job information\n{}", stdout)?;
+        writeln!(log_handle, "{LP} Job information\n{}", stdout)?;
         let job_status = stdout
             .lines()
             .nth(2)
@@ -399,11 +414,11 @@ impl Executor for SlurmExecutor {
         match job_status {
             Some((c1, c2)) => {
                 if c1 == 0 && c2 == 0 {
-                    writeln!(log_handle, ":: Job completed successfully!")?;
+                    writeln!(log_handle, "{LP} Job completed successfully!")?;
                 } else {
                     writeln!(
                         log_handle,
-                        ":: Job completed with non-zero exit code {c1}:{c2}\nstderr: .maestro.err"
+                        "{LP} Job completed with non-zero exit code {c1}:{c2}\nstderr: .maestro.err"
                     )?;
                     return Err(io::Error::other(format!(
                         "Job completed with non-zero exit code. Logs at {}",

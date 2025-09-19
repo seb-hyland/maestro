@@ -1,3 +1,7 @@
 lib/examples/workflow.rs:30:18
 - gromacs
 - tree
+lib/examples/workflow.rs:96:18
+- bat
+- tree
+- cat

@@ -7,6 +7,7 @@ pub(crate) fn run_shellcheck(
     input: &str,
     path: Option<&str>,
     has_shebang: bool,
+    injection_count: usize,
 ) -> Result<(), (String, String)> {
     let mut child = Command::new("shellcheck")
         .arg("-")
@@ -45,7 +46,7 @@ pub(crate) fn run_shellcheck(
         // Ignore errors associated with a line >= file_lines
         // These errors are due to injected text, not the file itself
         // Typically caused by Rust variables not lining up with script variables
-        let file_lines = input.lines().count();
+        let file_lines = input.lines().count() - injection_count;
         let combined = format!("{stderr}{stdout}")
             .lines()
             .filter_map(|line| {
@@ -53,9 +54,7 @@ pub(crate) fn run_shellcheck(
                     // Extract line number
                     && let Some(colon_pos) = rest.find(':')
                 {
-                    let line_num_start = 2;
-                    let line_num_end = 2 + colon_pos;
-                    let line_num_str = &line[line_num_start..line_num_end];
+                    let line_num_str = &line[2..2 + colon_pos];
                     if let Ok(mut line_num) = line_num_str.parse::<usize>() {
                         if !has_shebang {
                             line_num -= 1;
@@ -63,9 +62,9 @@ pub(crate) fn run_shellcheck(
                         if line_num < file_lines {
                             return Some(format!(
                                 "{}{}{}",
-                                &line[..line_num_start],
+                                &line[0..2],
                                 line_num,
-                                &line[line_num_end..]
+                                &line[2 + colon_pos..]
                             ));
                         }
                     }
@@ -79,7 +78,11 @@ pub(crate) fn run_shellcheck(
         } else {
             combined.replace("-:", "")
         };
-        Err(("The script has errors!".to_string(), combined))
+        if combined.is_empty() {
+            Ok(())
+        } else {
+            Err(("The script has errors!".to_string(), combined))
+        }
     } else {
         Ok(())
     }

@@ -103,8 +103,7 @@ impl Process {
     ) -> io::Result<()> {
         writeln!(launcher, "set -euo pipefail")?;
 
-        let input_dir = PathBuf::from("maestro_inputs/");
-        let stage_inputs = matches!(staging_mode, StagingMode::None).not();
+        let input_dir = Path::new("maestro_inputs/");
         writeln!(
             launcher,
             "echo \":: Process workdir initialized at {}\"\necho \":: Staging inputs to {}\"",
@@ -115,6 +114,7 @@ impl Process {
 
         self.check_files(CheckTime::Input, None)?;
 
+        let stage_inputs = matches!(staging_mode, StagingMode::None).not();
         for (var, file) in &self.inputs {
             let var = var.split_whitespace().collect::<Vec<_>>().join("_");
             let transformed_arg = if stage_inputs {

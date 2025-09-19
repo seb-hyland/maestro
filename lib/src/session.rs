@@ -1,3 +1,5 @@
+use crate::LP;
+use rand::seq::IndexedRandom;
 use std::{
     env,
     fs::{self},
@@ -6,10 +8,9 @@ use std::{
     sync::LazyLock,
 };
 
-use rand::seq::IndexedRandom;
-
 pub(crate) static SESSION_WORKDIR: LazyLock<Result<PathBuf, io::Error>> =
     LazyLock::new(setup_session_workdir);
+
 fn setup_session_workdir() -> Result<PathBuf, io::Error> {
     let session_id = {
         let mut rng = rand::rng();
@@ -28,7 +29,7 @@ fn setup_session_workdir() -> Result<PathBuf, io::Error> {
     let session_workdir = maestro_workdir.join(&session_id);
     fs::create_dir_all(&session_workdir)?;
     println!(
-        ":: New maestro session initialized!\n:: ID: {}\n:: Workdir: {}",
+        "{LP} New maestro session initialized!\n{LP} ID: {}\n{LP} Workdir: {}",
         session_id,
         session_workdir.display()
     );

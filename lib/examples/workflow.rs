@@ -25,12 +25,12 @@ fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
         outputs = [
             output_path
         ],
+        dependencies = ["!cat", "gromacs"],
         inline = true,
         process = r#"
         cat "$test_fasta"
         cat "$test_dir"/seq2.fasta
-        tree "$test_dir"
-        > "$output_path"
+        tree "$test_dir" > "$output_path"
         "#
     };
     SlurmExecutor::default()

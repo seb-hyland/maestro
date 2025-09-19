@@ -1,3 +1,4 @@
+use crate::dep_analysis::{DEPENDENCIES_FILE, SHELL_EXCLUDES, analyze_depends};
 use fxhash::FxHashSet;
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
@@ -17,8 +18,6 @@ use syn::{
     token::{Comma, Eq},
 };
 
-use crate::dep_analysis::{DEPENDENCIES_FILE, SHELL_EXCLUDES, analyze_depends};
-
 #[cfg(feature = "check_scripts")]
 mod checker;
 mod dep_analysis;
@@ -26,9 +25,10 @@ mod dep_analysis;
 
 struct ProcessDefinition {
     name: Option<Expr>,
+    container: TokenStream2,
     inputs: Punctuated<Ident, Comma>,
-    outputs: Punctuated<Ident, Comma>,
     args: Punctuated<Ident, Comma>,
+    outputs: Punctuated<Ident, Comma>,
     dependencies: Punctuated<LitStr, Comma>,
     inline: bool,
     literal: LitStr,
@@ -40,6 +40,7 @@ mod kw {
     custom_keyword!(inputs);
     custom_keyword!(outputs);
     custom_keyword!(args);
+    custom_keyword!(container);
     custom_keyword!(dependencies);
     custom_keyword!(inline);
     custom_keyword!(process);
@@ -47,53 +48,75 @@ mod kw {
 
 impl Parse for ProcessDefinition {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let name: Option<Expr> = if input.peek(kw::name) {
-            let _: kw::name = input.parse()?;
-            let _: Eq = input.parse()?;
-            let name = input.parse()?;
-            let _: Comma = input.parse()?;
-            Some(name)
-        } else {
-            None
-        };
+        let mut name = None;
+        let mut container = quote! { None };
+        let mut inputs = Punctuated::new();
+        let mut args = Punctuated::new();
+        let mut outputs = Punctuated::new();
+        let mut dependencies = Punctuated::new();
+        let mut inline = false;
+        let mut process = None;
 
         macro_rules! parse_list {
-            ($token:path, $parse:expr) => {
-                if input.peek($token) {
-                    let _: $token = input.parse()?;
-                    let _: Eq = input.parse()?;
-                    let process_inputs;
-                    bracketed!(process_inputs in input);
-                    let parsed = process_inputs.parse_terminated($parse, Comma);
-                    let _: Comma = input.parse()?;
-                    parsed
-                } else {
-                    Ok(Punctuated::new())
-                }
-            };
+            ($token:ident, $parse:expr) => {{
+                let _: kw::$token = input.parse()?;
+                let _: Eq = input.parse()?;
+                let process_inputs;
+                bracketed!(process_inputs in input);
+                $token = process_inputs.parse_terminated($parse, Comma)?;
+            }};
         }
-        let inputs = parse_list!(kw::inputs, Ident::parse)?;
-        let args = parse_list!(kw::args, Ident::parse)?;
-        let outputs = parse_list!(kw::outputs, Ident::parse)?;
-        let dependencies = parse_list!(kw::dependencies, <LitStr as parse::Parse>::parse)?;
 
-        let inline = if input.peek(kw::inline) {
-            let _: kw::inline = input.parse()?;
-            let _: Eq = input.parse()?;
-            let bool: LitBool = input.parse()?;
-            let _: Comma = input.parse()?;
-            bool.value
-        } else {
-            true
+        while !input.is_empty() {
+            if input.peek(kw::name) {
+                let _: kw::name = input.parse()?;
+                let _: Eq = input.parse()?;
+                name = Some(input.parse()?);
+            } else if input.peek(kw::container) {
+                let _: kw::container = input.parse()?;
+                let _: Eq = input.parse()?;
+                let expr: Expr = input.parse()?;
+                container = quote! { Some(#expr) };
+            } else if input.peek(kw::inputs) {
+                parse_list!(inputs, Ident::parse)
+            } else if input.peek(kw::args) {
+                parse_list!(args, Ident::parse)
+            } else if input.peek(kw::outputs) {
+                parse_list!(outputs, Ident::parse)
+            } else if input.peek(kw::dependencies) {
+                parse_list!(dependencies, <LitStr as parse::Parse>::parse)
+            } else if input.peek(kw::inline) {
+                let _: kw::inline = input.parse()?;
+                let _: Eq = input.parse()?;
+                inline = input.parse::<LitBool>()?.value();
+            } else if input.peek(kw::process) {
+                let _: kw::process = input.parse()?;
+                let _: Eq = input.parse()?;
+                process = Some(input.parse()?);
+            }
+            if let Err(_) = input.parse::<Comma>()
+                && !input.is_empty()
+            {
+                return Err(syn::Error::new(
+                    input.span(),
+                    "Fields must be separated by commas",
+                ));
+            }
+        }
+
+        let literal = match process {
+            Some(v) => v,
+            None => {
+                return Err(syn::Error::new(
+                    input.span(),
+                    "Missing required `process` field!",
+                ));
+            }
         };
-
-        let _: kw::process = input.parse()?;
-        let _: Eq = input.parse()?;
-        let literal: LitStr = input.parse()?;
-        let _: Result<Comma, _> = input.parse();
 
         Ok(ProcessDefinition {
             name,
+            container,
             inputs,
             args,
             outputs,
@@ -256,13 +279,16 @@ pub fn process(input: TokenStream) -> TokenStream {
         .into();
     }
 
+    let container = definition.container;
+
     quote! {
         maestro::Process::new(
             #name.to_string(),
-            ::std::borrow::Cow::Borrowed(#process_lit),
+            #container,
             vec![#(#input_pairs),*],
+            vec![#(#arg_pairs),*],
             vec![#(#output_pairs),*],
-            vec![#(#arg_pairs),*]
+            ::std::borrow::Cow::Borrowed(#process_lit),
         )
     }
     .into()

@@ -1,6 +1,7 @@
 - [X] Fix local execution with no copy
-- [] Fix slurm drop impl
-- [] Make container part of Process
+- [X] Fix slurm drop impl
+- [X] Make container part of Process
 - [] Support generic executor
 - [] Support TOML parsing
+- [] dtor for .maestro_running
 - [] CLI

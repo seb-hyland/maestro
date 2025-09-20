@@ -21,20 +21,22 @@ pub type StrArg = (Cow<'static, str>, String);
 #[derive(Clone)]
 pub struct Process {
     name: String,
-    script: Cow<'static, str>,
+    container: Option<Container>,
     inputs: Vec<PathArg>,
-    outputs: Vec<PathArg>,
     args: Vec<StrArg>,
+    outputs: Vec<PathArg>,
+    script: Cow<'static, str>,
 }
 
 type PathAndHandle = (PathBuf, File);
 impl Process {
     pub fn new(
         name: String,
-        script: Cow<'static, str>,
+        container: Option<Container>,
         inputs: Vec<PathArg>,
-        outputs: Vec<PathArg>,
         args: Vec<StrArg>,
+        outputs: Vec<PathArg>,
+        script: Cow<'static, str>,
     ) -> Self {
         Process {
             name,
@@ -42,6 +44,7 @@ impl Process {
             inputs,
             outputs,
             args,
+            container,
         }
     }
 
@@ -187,12 +190,51 @@ impl Process {
         Ok(())
     }
 
-    fn write_execution(mut launcher_handle: File, error_handling: bool) -> io::Result<()> {
-        writeln!(
-            launcher_handle,
-            "{}./.maestro.sh >> .maestro.out 2>> .maestro.err",
-            if error_handling { "source " } else { "" }
-        )
+    fn write_execution(mut launcher_handle: File, process: &Process) -> io::Result<()> {
+        let execution_str = "./.maestro.sh >> .maestro.out 2>> .maestro.err";
+        let image = match &process.container {
+            None => return writeln!(launcher_handle, "{execution_str}"),
+            Some(runtime) => match runtime {
+                Container::Docker(image) => {
+                    write!(
+                        launcher_handle,
+                        "docker run --rm -v .:/maestro -w /maestro "
+                    )?;
+                    image
+                }
+                Container::Apptainer(image) => {
+                    write!(
+                        launcher_handle,
+                        "apptainer exec --bind .:/maestro --workdir /maestro "
+                    )?;
+                    image
+                }
+            },
+        };
+        for input in &process.inputs {
+            write!(launcher_handle, "-e {} ", input.0)?;
+        }
+        for arg in &process.args {
+            write!(launcher_handle, "-e {} ", arg.0)?;
+        }
+        for output in &process.outputs {
+            write!(launcher_handle, "-e {} ", output.0)?;
+        }
+        writeln!(launcher_handle, "{image} bash -c \"{execution_str}\"")
+    }
+}
+
+#[derive(Clone)]
+pub enum Container {
+    Docker(Cow<'static, str>),
+    Apptainer(Cow<'static, str>),
+}
+impl Container {
+    pub fn from_docker(image: &'static str) -> Self {
+        Self::Docker(Cow::Borrowed(image))
+    }
+    pub fn from_apptainer(image: &'static str) -> Self {
+        Self::Apptainer(Cow::Borrowed(image))
     }
 }
 

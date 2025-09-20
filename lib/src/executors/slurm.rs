@@ -13,7 +13,6 @@ use crate::{CheckTime, LP, Process, StagingMode, executors::Executor};
 pub struct SlurmExecutor {
     poll_rate: Duration,
     staging_mode: StagingMode,
-    error_handling: bool,
     modules: Vec<String>,
     config: SlurmConfig,
 }
@@ -23,7 +22,6 @@ impl Default for SlurmExecutor {
         Self {
             poll_rate: Duration::from_secs(5),
             staging_mode: StagingMode::Symlink,
-            error_handling: true,
             modules: Vec::new(),
             config: SlurmConfig::default(),
         }
@@ -37,10 +35,6 @@ impl SlurmExecutor {
     }
     pub fn with_staging_mode(mut self, staging_mode: StagingMode) -> Self {
         self.staging_mode = staging_mode;
-        self
-    }
-    pub fn with_error_handling(mut self, error_handling: bool) -> Self {
-        self.error_handling = error_handling;
         self
     }
     pub fn with_module<S: ToString>(mut self, module: S) -> Self {
@@ -300,11 +294,16 @@ impl Executor for SlurmExecutor {
         let (workdir, (log_path, mut log_handle), (launcher_path, mut launcher_handle)) =
             process.prep_script_workdir()?;
         writeln!(launcher_handle, "{}", self.config)?;
-        process.stage_inputs(&mut launcher_handle, &workdir, &self.staging_mode)?;
+
+        let staging_mode = match process.container {
+            None => &self.staging_mode,
+            Some(_) => &StagingMode::Copy,
+        };
+        process.stage_inputs(&mut launcher_handle, &workdir, staging_mode)?;
         for module_name in &self.modules {
             writeln!(launcher_handle, "module load {module_name}")?;
         }
-        Process::write_execution(launcher_handle, self.error_handling)?;
+        Process::write_execution(launcher_handle, &process)?;
 
         let output = Command::new("sbatch")
             .args([

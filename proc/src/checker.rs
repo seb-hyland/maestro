@@ -13,7 +13,7 @@ pub(crate) fn run_shellcheck(
         .arg("-")
         .args(["-f", "gcc"])
         .stdin(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::null())
         .stdout(Stdio::piped())
         .spawn()
         .map_err(|e| ("Failed to spawn script checker!".to_string(), e.to_string()))?;
@@ -40,14 +40,13 @@ pub(crate) fn run_shellcheck(
     })?;
 
     if !output.status.success() {
-        let stderr = String::from_utf8_lossy(&output.stderr);
         let stdout = String::from_utf8_lossy(&output.stdout);
 
         // Ignore errors associated with a line >= file_lines
         // These errors are due to injected text, not the file itself
         // Typically caused by Rust variables not lining up with script variables
         let file_lines = input.lines().count() - injection_count;
-        let combined = format!("{stderr}{stdout}")
+        let combined = stdout
             .lines()
             .filter_map(|line| {
                 if let Some(rest) = line.strip_prefix("-:")

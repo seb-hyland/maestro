@@ -8,14 +8,12 @@ use std::{
 #[derive(Clone, Copy)]
 pub struct LocalExecutor {
     staging_mode: StagingMode,
-    error_handling: bool,
 }
 
 impl Default for LocalExecutor {
     fn default() -> Self {
         Self {
             staging_mode: StagingMode::Symlink,
-            error_handling: true,
         }
     }
 }
@@ -25,22 +23,22 @@ impl LocalExecutor {
         self.staging_mode = mode;
         self
     }
-    pub fn with_error_handling(mut self, y: bool) -> Self {
-        self.error_handling = y;
-        self
-    }
 }
 
 impl Executor for LocalExecutor {
     fn exe(&self, mut process: Process) -> io::Result<Vec<PathBuf>> {
         let (workdir, (log_path, mut log_handle), (launcher_path, mut launcher_handle)) =
             process.prep_script_workdir()?;
-        process.stage_inputs(&mut launcher_handle, &workdir, &self.staging_mode)?;
+        let staging_mode = match process.container {
+            None => &self.staging_mode,
+            Some(_) => &StagingMode::Copy,
+        };
+        process.stage_inputs(&mut launcher_handle, &workdir, staging_mode)?;
         writeln!(
             launcher_handle,
             "echo -e \"{LP} Launching local process\\nstdout: .maestro.out\\nstderr: .maestro.err\""
         )?;
-        Process::write_execution(launcher_handle, self.error_handling)?;
+        Process::write_execution(launcher_handle, &process)?;
 
         let output = Command::new(launcher_path)
             .stdout(log_handle.try_clone()?)

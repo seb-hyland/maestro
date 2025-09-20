@@ -1,5 +1,5 @@
 pub use crate::{
-    StagingMode,
+    Container, StagingMode,
     executors::{
         Executor,
         local::LocalExecutor,

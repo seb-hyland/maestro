@@ -1,6 +1,5 @@
-:1:0
-- cat
-:1:0
+lib/examples/workflow.rs:28:18
+- DOCKER { ubuntu:rolling }
 - ls
 - gromacs
 - sleep

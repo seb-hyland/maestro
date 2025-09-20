@@ -16,7 +16,7 @@ fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
 
     let process = process! {
         name = format!("test_{run}"),
-        container = Container::from_docker("ubuntu:rolling"),
+        container = Docker("ubuntu:rolling"),
         inputs = [
             test_fasta,
             test_dir

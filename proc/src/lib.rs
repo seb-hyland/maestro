@@ -11,7 +11,7 @@ use std::{
     sync::{LazyLock, Mutex},
 };
 use syn::{
-    Expr, Ident, LitBool, LitStr, bracketed,
+    Expr, Ident, LitBool, LitStr, bracketed, parenthesized,
     parse::{self, Parse},
     parse_macro_input,
     punctuated::Punctuated,
@@ -25,13 +25,17 @@ mod dep_analysis;
 
 struct ProcessDefinition {
     name: Option<Expr>,
-    container: TokenStream2,
+    container: Option<Container>,
     inputs: Punctuated<Ident, Comma>,
     args: Punctuated<Ident, Comma>,
     outputs: Punctuated<Ident, Comma>,
     dependencies: Punctuated<LitStr, Comma>,
     inline: bool,
     literal: LitStr,
+}
+enum Container {
+    Docker(LitStr),
+    Apptainer(LitStr),
 }
 
 mod kw {
@@ -41,6 +45,8 @@ mod kw {
     custom_keyword!(outputs);
     custom_keyword!(args);
     custom_keyword!(container);
+    custom_keyword!(Docker);
+    custom_keyword!(Apptainer);
     custom_keyword!(dependencies);
     custom_keyword!(inline);
     custom_keyword!(process);
@@ -49,7 +55,7 @@ mod kw {
 impl Parse for ProcessDefinition {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut name = None;
-        let mut container = quote! { None };
+        let mut container = None;
         let mut inputs = Punctuated::new();
         let mut args = Punctuated::new();
         let mut outputs = Punctuated::new();
@@ -75,8 +81,21 @@ impl Parse for ProcessDefinition {
             } else if input.peek(kw::container) {
                 let _: kw::container = input.parse()?;
                 let _: Eq = input.parse()?;
-                let expr: Expr = input.parse()?;
-                container = quote! { Some(#expr) };
+                container = Some(if input.peek(kw::Docker) {
+                    let _: kw::Docker = input.parse()?;
+                    let container_literal;
+                    parenthesized!(container_literal in input);
+                    let image: LitStr = container_literal.parse()?;
+                    Container::Docker(image)
+                } else {
+                    let _: kw::Apptainer = input.parse().map_err(|_| {
+                        syn::Error::new(input.span(), "Expected keyword Docker or Apptainer")
+                    })?;
+                    let container_literal;
+                    parenthesized!(container_literal in input);
+                    let image: LitStr = container_literal.parse()?;
+                    Container::Apptainer(image)
+                });
             } else if input.peek(kw::inputs) {
                 parse_list!(inputs, Ident::parse)
             } else if input.peek(kw::args) {
@@ -273,6 +292,12 @@ pub fn process(input: TokenStream) -> TokenStream {
             process_span.start().line,
             process_span.start().column
         )?;
+        if let Some(container) = &definition.container {
+            match container {
+                Container::Docker(img) => writeln!(lock, "- DOCKER {{ {} }}", img.value()),
+                Container::Apptainer(img) => writeln!(lock, "- APPTAINER {{ {} }}", img.value()),
+            }?;
+        }
         for dependency in dependencies {
             writeln!(lock, "- {}", dependency)?;
         }
@@ -286,7 +311,13 @@ pub fn process(input: TokenStream) -> TokenStream {
         .into();
     }
 
-    let container = definition.container;
+    let container = match definition.container {
+        None => quote! { None },
+        Some(container) => match container {
+            Container::Docker(img) => quote! { Some(maestro::Container::from_docker(#img)) },
+            Container::Apptainer(img) => quote! { Some(maestro::Container::from_apptainer(#img)) },
+        },
+    };
 
     quote! {
         maestro::Process::new(

@@ -3,6 +3,7 @@ use crate::{
     bundle::build_and_bundle,
     cache::prep_cache,
     init::initialize,
+    kill::kill_process,
 };
 use clap::{
     Parser,
@@ -23,6 +24,7 @@ mod build;
 mod bundle;
 mod cache;
 mod init;
+mod kill;
 
 type StringErr = Cow<'static, str>;
 type StringResult = Result<(), StringErr>;
@@ -35,6 +37,7 @@ fn main() {
         Cmd::UpgradeCache => prep_cache().map(|_| {}),
         Cmd::Build { args } => build_project(args, BuildType::Build),
         Cmd::Run { args } => build_project(args, BuildType::Run),
+        Cmd::Kill { target } => kill_process(&target),
     } {
         eprintln!("{e}");
         process::exit(1);
@@ -59,6 +62,9 @@ enum Cmd {
     Run {
         #[arg(trailing_var_arg = true)]
         args: Vec<String>,
+    },
+    Kill {
+        target: PathBuf,
     },
 }
 

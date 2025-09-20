@@ -1,4 +1,6 @@
-use crate::{StringErr, find_crate_root, mapper, report_process_failure, static_err};
+use crate::{
+    StringErr, dedent, find_crate_root, mapper, report_process_failure, rustc_version, static_err,
+};
 use std::{
     fs,
     path::PathBuf,
@@ -54,25 +56,8 @@ pub(crate) fn prep_cache() -> Result<PathBuf, StringErr> {
 
     let maestro_dirname = maestro_dir.file_name().unwrap().to_string_lossy();
     let maestro_version = maestro_dirname.strip_prefix("maestro-").unwrap();
-    let rustc_version_cmd = Command::new("rustc")
-        .arg("--version")
-        .current_dir(&crate_root)
-        .output()
-        .map_err(|e| mapper(&e, "Failed to determine rustc version"))?;
-    if !rustc_version_cmd.status.success() {
-        return Err(report_process_failure(
-            rustc_version_cmd.status,
-            "Determining rustc version",
-        ));
-    }
-    let rustc_output = String::from_utf8_lossy(&rustc_version_cmd.stdout);
-    let rustc_version = rustc_output
-        .lines()
-        .last()
-        .ok_or(static_err("Failed to parse empty rustc output"))?
-        .split_whitespace()
-        .nth(1)
-        .ok_or(static_err("Failed to parse rustc version output"))?;
+
+    let rustc_version = rustc_version()?;
     let output_dir = cache_dir.join(format!("maestro-{maestro_version}_rustc-{rustc_version}"));
     if output_dir.exists() {
         return Ok(output_dir);
@@ -108,11 +93,15 @@ pub(crate) fn prep_cache() -> Result<PathBuf, StringErr> {
     })?;
     fs::write(
         config_dir.join("config.toml"),
-        b"
-[source.crates-io]
-replace-with = \"vendored-sources\"
-[source.vendored-sources]
-directory = \"../\"",
+        dedent(
+            r#"
+            [source.crates-io]
+            replace-with = "vendored-sources"
+
+            [source.vendored-sources]
+            directory = "../"
+            "#,
+        ),
     )
     .map_err(|e| mapper(&e, "Failed to write config.toml while building libmaestro"))?;
 

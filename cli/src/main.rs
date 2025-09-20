@@ -1,11 +1,16 @@
-use crate::{build::build_project, bundle::build_and_bundle, cache::prep_cache, init::initialize};
-use clap::Parser;
+use crate::{
+    build::{BuildType, build_project},
+    bundle::build_and_bundle,
+    cache::prep_cache,
+    init::initialize,
+};
+use clap::{Parser, Subcommand};
 use std::{
     borrow::Cow,
     env,
     error::Error,
     path::PathBuf,
-    process::{self, ExitStatus},
+    process::{self, Command, ExitStatus},
 };
 
 mod build;
@@ -14,12 +19,13 @@ mod cache;
 mod init;
 
 fn main() {
-    let command = SubCommand::parse();
+    let command = Cmd::parse();
     if let Err(e) = match command {
-        SubCommand::Init { path } => initialize(path),
-        SubCommand::Bundle { args } => build_and_bundle(args),
-        SubCommand::InstallCache => prep_cache().map(|_| {}),
-        SubCommand::Build { args } => build_project(args),
+        Cmd::Init { path } => initialize(path),
+        Cmd::Bundle { args } => build_and_bundle(args),
+        Cmd::UpgradeCache => prep_cache().map(|_| {}),
+        Cmd::Build { args } => build_project(args, BuildType::Build),
+        Cmd::Run { args } => build_project(args, BuildType::Run),
     } {
         eprintln!("{e}");
         process::exit(1);
@@ -28,7 +34,7 @@ fn main() {
 
 #[derive(Parser)]
 #[command(version, about)]
-enum SubCommand {
+enum Cmd {
     Init {
         path: Option<String>,
     },
@@ -36,8 +42,12 @@ enum SubCommand {
         #[arg(trailing_var_arg = true)]
         args: Vec<String>,
     },
-    InstallCache,
+    UpgradeCache,
     Build {
+        #[arg(trailing_var_arg = true)]
+        args: Vec<String>,
+    },
+    Run {
         #[arg(trailing_var_arg = true)]
         args: Vec<String>,
     },
@@ -80,4 +90,39 @@ fn report_process_failure(status: ExitStatus, process: &'static str) -> StringEr
         Some(code) => format!("{process} failed with exit code {code}"),
         None => format!("{process} failed due to external signal"),
     })
+}
+
+fn dedent<S: ToString>(s: S) -> Vec<u8> {
+    let str = s.to_string();
+    str.trim()
+        .lines()
+        .map(|line| line.trim_start().as_bytes().to_owned())
+        .reduce(|mut acc, l| {
+            acc.push(b'\n');
+            acc.extend_from_slice(&l);
+            acc
+        })
+        .unwrap()
+}
+
+fn rustc_version() -> Result<String, StringErr> {
+    let rustc_version_cmd = Command::new("rustc")
+        .arg("--version")
+        .output()
+        .map_err(|e| mapper(&e, "Failed to determine rustc version"))?;
+    if !rustc_version_cmd.status.success() {
+        return Err(report_process_failure(
+            rustc_version_cmd.status,
+            "Determining rustc version",
+        ));
+    }
+    let rustc_output = String::from_utf8_lossy(&rustc_version_cmd.stdout);
+    rustc_output
+        .lines()
+        .last()
+        .ok_or(static_err("Failed to parse empty rustc output"))?
+        .split_whitespace()
+        .nth(1)
+        .ok_or(static_err("Failed to parse rustc version output"))
+        .map(|v| v.to_string())
 }

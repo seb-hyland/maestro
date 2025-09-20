@@ -1,6 +1,8 @@
 use std::{env, fs, path::Path};
 
-use crate::{StringResult, cache::prep_cache, dynamic_err, mapper, static_err};
+use crate::{
+    StringResult, cache::prep_cache, dedent, dynamic_err, mapper, rustc_version, static_err,
+};
 
 pub(crate) fn initialize(path: Option<String>) -> StringResult {
     let workdir = match path {
@@ -38,7 +40,14 @@ pub(crate) fn initialize(path: Option<String>) -> StringResult {
         )))?;
         fs::write(
             cargo_toml,
-            format!("[package]\nname = \"{}\"\n{template}", crate_name.display()),
+            dedent(format!(
+                r#"
+                [package]
+                name = "{}"
+                {template}
+                "#,
+                crate_name.display()
+            )),
         )
         .map_err(|e| mapper(&e, "Failed to write Cargo.toml"))?;
     }
@@ -64,6 +73,19 @@ pub(crate) fn initialize(path: Option<String>) -> StringResult {
             include_str!("../../lib/examples/template.rs"),
         )
         .map_err(|e| mapper(&e, "Failed to write src/main.rs"))?;
+    }
+    {
+        let rustc_version = rustc_version()?;
+        fs::write(
+            workdir.join("rust-toolchain.toml"),
+            dedent(format!(
+                r#"
+                [toolchain]
+                channel = "{rustc_version}"
+                "#
+            )),
+        )
+        .map_err(|e| mapper(&e, "Failed to write rust-toolchain.toml"))?;
     }
 
     env::set_current_dir(&workdir)

@@ -1,17 +1,18 @@
 [executor]
-type = "Slurm"
-staging_mode = "Copy"
-cpus = 8
-memory = { type = "per_cpu", amount = 8192 }
-tasks = 1
-nodes = 1
-time = { days = 1, hours = 2 }
-account = "st-shallam-1"
-mail_user = "myemail@gmail.com"
-mail_type = ["NONE", "TIME_LIMIT_50"]
-additional_options = [
-    ["qos", "high"]
-]
+# type = "Slurm"
+# staging_mode = "Copy"
+# cpus = 8
+# memory = { type = "per_cpu", amount = 8192 }
+# tasks = 1
+# nodes = 1
+# time = { days = 1, hours = 2 }
+# account = "st-shallam-1"
+# mail_user = "myemail@gmail.com"
+# mail_type = ["NONE", "TIME_LIMIT_50"]
+# additional_option = [
+#     ["qos", "high"]
+# ]
+type = "Local"
 
 [args]
 print_statement = "Hi!"

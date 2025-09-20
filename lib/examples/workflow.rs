@@ -5,7 +5,7 @@ use std::{
 };
 
 fn main() {
-    println!("{}", MAESTRO_CONFIG["print_statement"]);
+    // println!("{}", MAESTRO_CONFIG["print_statement"]);
     test_workflow(0).unwrap();
 }
 
@@ -25,12 +25,12 @@ fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
         outputs = [
             output_path
         ],
-        inline = true,
         process = r#"
+        sleep 5s
         cat "$test_fasta"
         cat "$test_dir"/seq2.fasta
         ls -R "$test_dir" > "$output_path"
         "#
     };
-    MAESTRO_CONFIG.execute(process)
+    MAESTRO_CONFIG.exe(process)
 }

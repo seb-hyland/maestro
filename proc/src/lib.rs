@@ -54,7 +54,7 @@ impl Parse for ProcessDefinition {
         let mut args = Punctuated::new();
         let mut outputs = Punctuated::new();
         let mut dependencies = Punctuated::new();
-        let mut inline = false;
+        let mut inline = true;
         let mut process = None;
 
         macro_rules! parse_list {

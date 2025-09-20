@@ -1,3 +1,4 @@
-lib/examples/workflow.rs:29:18
+lib/examples/workflow.rs:28:18
 - ls
 - gromacs
+- sleep

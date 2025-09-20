@@ -1,10 +1,12 @@
 use crate::LP;
+use ctor::dtor;
 use rand::seq::IndexedRandom;
 use std::{
     env,
     fs::{self},
     io,
     path::PathBuf,
+    process,
     sync::LazyLock,
 };
 
@@ -28,12 +30,22 @@ fn setup_session_workdir() -> Result<PathBuf, io::Error> {
     };
     let session_workdir = maestro_workdir.join(&session_id);
     fs::create_dir_all(&session_workdir)?;
+    fs::write(
+        session_workdir.join(".maestro.active"),
+        process::id().to_string(),
+    )?;
     println!(
         "{LP} New maestro session initialized!\n{LP} ID: {}\n{LP} Workdir: {}",
         session_id,
         session_workdir.display()
     );
     Ok(session_workdir)
+}
+#[dtor]
+fn set_inactive() {
+    if let Ok(dir) = &*SESSION_WORKDIR {
+        let _ = fs::remove_file(dir.join(".maestro.active"));
+    }
 }
 
 const ADJECTIVES: [&str; 100] = [

@@ -1,4 +1,5 @@
 use crate::executors::{Executor, generic::GenericExecutor};
+use ctor::ctor;
 use serde::Deserialize;
 use std::{
     borrow::Cow,
@@ -8,6 +9,7 @@ use std::{
     io::{self},
     ops::Index,
     path::PathBuf,
+    process::exit,
     sync::LazyLock,
 };
 
@@ -53,7 +55,7 @@ pub struct MaestroConfig {
     args: HashMap<String, String>,
 }
 impl MaestroConfig {
-    pub fn execute(&self, process: Process) -> io::Result<Vec<PathBuf>> {
+    pub fn exe(&self, process: Process) -> io::Result<Vec<PathBuf>> {
         match &self.executor {
             GenericExecutor::Local(executor) => executor.exe(process),
             GenericExecutor::Slurm(executor) => executor.exe(process),
@@ -69,8 +71,20 @@ impl Index<&str> for MaestroConfig {
         &self.args[index]
     }
 }
+
 pub static MAESTRO_CONFIG: LazyLock<MaestroConfig> = LazyLock::new(|| {
     let config_file = env::var("MAESTRO_CONFIG").unwrap_or("Maestro.toml".to_string());
-    let file_contents = fs::read_to_string(config_file).expect("Failed to read config file!");
-    toml::from_str(&file_contents).unwrap_or_else(|e| panic!("Failed to parse Maestro.toml: {e}"))
+    let file_contents = fs::read_to_string(config_file).unwrap_or_else(|e| {
+        eprintln!("Failed to read config file: {e}");
+        exit(1)
+    });
+    toml::from_str(&file_contents).unwrap_or_else(|e| {
+        eprintln!("Failed to parse Maestro.toml: {e}");
+        exit(1)
+    })
 });
+
+#[ctor]
+fn parse_config() {
+    LazyLock::force(&MAESTRO_CONFIG);
+}

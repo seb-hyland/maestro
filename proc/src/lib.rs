@@ -247,15 +247,22 @@ pub fn process(input: TokenStream) -> TokenStream {
 
     let mut dependencies = FxHashSet::default();
     let mut excludes = SHELL_EXCLUDES.clone();
+    let mut ignore_all = false;
     for dependency_lit in definition.dependencies {
         let dependency = dependency_lit.value();
+        if dependency == "!" {
+            ignore_all = true;
+        }
         if let Some(excluded) = dependency.strip_prefix('!') {
             excludes.insert(excluded.to_string());
         } else {
             dependencies.insert(dependency);
         }
     }
-    analyze_depends(&process, &mut excludes, &mut dependencies);
+    if !ignore_all {
+        analyze_depends(&process, &mut excludes, &mut dependencies);
+    }
+
     let process_span = literal.span();
     if let Err(e) = || -> Result<(), io::Error> {
         let mut lock = DEPENDENCIES_FILE.lock().unwrap();

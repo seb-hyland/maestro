@@ -32,25 +32,22 @@ impl Process {
     pub(crate) fn prep_script_workdir(
         &mut self,
     ) -> Result<(PathBuf, PathAndHandle, PathAndHandle), io::Error> {
-        let process_workdir = {
-            let session_dir = SESSION_WORKDIR
-                .as_ref()
-                .map_err(|e| io::Error::new(e.kind(), e.to_string()))?;
-            let dir = session_dir.join(&self.name);
-            if dir.exists() {
-                return Err(io::Error::new(
-                    io::ErrorKind::AlreadyExists,
-                    format!(
-                        "Process working directory {} already exists! Use a unique process name to avoid collisions",
-                        dir.display()
-                    ),
-                ));
-            }
-            create_dir_all(&dir)?;
-            dir
-        };
+        // Initialized in CTOR
+        let session_dir = SESSION_WORKDIR.get().unwrap().to_path_buf();
 
-        let script_path = process_workdir.join(".maestro.sh");
+        let dir = session_dir.join(&self.name);
+        if dir.exists() {
+            return Err(io::Error::new(
+                io::ErrorKind::AlreadyExists,
+                format!(
+                    "Process working directory {} already exists! Use a unique process name to avoid collisions",
+                    dir.display()
+                ),
+            ));
+        }
+        create_dir_all(&dir)?;
+
+        let script_path = dir.join(".maestro.sh");
         let mut script_file = OpenOptions::new()
             .write(true)
             .create_new(true)
@@ -58,13 +55,13 @@ impl Process {
             .open(&script_path)?;
         script_file.write_all(self.script.as_bytes())?;
 
-        let log_path = process_workdir.join(".maestro.log");
+        let log_path = dir.join(".maestro.log");
         let log_handle = OpenOptions::new()
             .create_new(true)
             .append(true)
             .open(&log_path)?;
 
-        let launcher_path = process_workdir.join(".maestro.launcher");
+        let launcher_path = dir.join(".maestro.launcher");
         let mut launcher_handle = OpenOptions::new()
             .append(true)
             .create_new(true)
@@ -73,7 +70,7 @@ impl Process {
         writeln!(launcher_handle, "#!/bin/bash")?;
 
         Ok((
-            process_workdir,
+            dir,
             (log_path, log_handle),
             (launcher_path, launcher_handle),
         ))

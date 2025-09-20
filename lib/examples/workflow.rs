@@ -6,10 +6,11 @@ use std::{
 
 fn main() {
     // println!("{}", MAESTRO_CONFIG["print_statement"]);
-    test_workflow(0).unwrap();
+    test_workflow(0, None).unwrap();
+    test_workflow(1, Some("celiste")).unwrap();
 }
 
-fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
+fn test_workflow(run: i32, executor: Option<&'static str>) -> io::Result<Vec<PathBuf>> {
     let test_fasta = Path::new("lib/examples/data/seq1.fasta");
     let test_dir = Path::new("lib/examples/data/");
     let output_path = Path::new("out.txt");
@@ -32,5 +33,8 @@ fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
         ls -R "$test_dir" > "$output_path"
         "#
     };
-    MAESTRO_CONFIG.exe(process)
+    match executor {
+        None => MAESTRO_CONFIG.exe(process),
+        Some(name) => MAESTRO_CONFIG.exe_custom(process, name),
+    }
 }

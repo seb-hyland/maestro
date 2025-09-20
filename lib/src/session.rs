@@ -7,13 +7,12 @@ use std::{
     io,
     path::PathBuf,
     process,
-    sync::LazyLock,
+    sync::OnceLock,
 };
 
-pub(crate) static SESSION_WORKDIR: LazyLock<Result<PathBuf, io::Error>> =
-    LazyLock::new(setup_session_workdir);
+pub(crate) static SESSION_WORKDIR: OnceLock<PathBuf> = OnceLock::new();
 
-fn setup_session_workdir() -> Result<PathBuf, io::Error> {
+pub(crate) fn setup_session_workdir() -> Result<PathBuf, io::Error> {
     let session_id = {
         let mut rng = rand::rng();
         let selected_adj = ADJECTIVES
@@ -43,7 +42,7 @@ fn setup_session_workdir() -> Result<PathBuf, io::Error> {
 }
 #[dtor]
 fn set_inactive() {
-    if let Ok(dir) = &*SESSION_WORKDIR {
+    if let Some(dir) = SESSION_WORKDIR.get() {
         let _ = fs::remove_file(dir.join(".maestro.active"));
     }
 }

@@ -84,6 +84,7 @@ pub struct SlurmConfig {
     account: Option<String>,
     mail_user: Option<String>,
     mail_type: Option<MailTypeList>,
+    #[serde(default)]
     additional_options: Vec<(String, String)>,
 }
 

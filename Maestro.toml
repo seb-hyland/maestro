@@ -1,4 +1,7 @@
 [executor]
+type = "Local"
+
+# [custom_executor.celiste]
 # type = "Slurm"
 # staging_mode = "Copy"
 # cpus = 8
@@ -12,7 +15,6 @@
 # additional_option = [
 #     ["qos", "high"]
 # ]
-type = "Local"
 
 [args]
 print_statement = "Hi!"

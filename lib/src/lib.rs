@@ -1,4 +1,7 @@
-use crate::executors::{Executor, generic::GenericExecutor};
+use crate::{
+    executors::{Executor, generic::GenericExecutor},
+    session::setup_session_workdir,
+};
 use ctor::ctor;
 use serde::Deserialize;
 use std::{
@@ -44,15 +47,34 @@ pub enum Container {
 #[serde(deny_unknown_fields)]
 pub struct MaestroConfig {
     executor: GenericExecutor,
+    #[serde(default)]
+    custom_executor: HashMap<String, GenericExecutor>,
     args: HashMap<String, String>,
 }
 impl MaestroConfig {
-    pub fn exe(&self, process: Process) -> io::Result<Vec<PathBuf>> {
-        match &self.executor {
+    fn exe_inner(process: Process, executor: &GenericExecutor) -> io::Result<Vec<PathBuf>> {
+        match &executor {
             GenericExecutor::Local(executor) => executor.exe(process),
             GenericExecutor::Slurm(executor) => executor.exe(process),
         }
     }
+
+    pub fn exe(&self, process: Process) -> io::Result<Vec<PathBuf>> {
+        Self::exe_inner(process, &self.executor)
+    }
+    pub fn exe_custom(&self, process: Process, executor_name: &str) -> io::Result<Vec<PathBuf>> {
+        let executor = match self.custom_executor.get(executor_name) {
+            Some(executor) => executor,
+            None => {
+                return Err(io::Error::new(
+                    io::ErrorKind::NotFound,
+                    format!("Executor {executor_name} not found in configuration!"),
+                ));
+            }
+        };
+        Self::exe_inner(process, executor)
+    }
+
     pub fn get(&self, arg: &str) -> Option<&str> {
         self.args.get(arg).map(|v| v.as_str())
     }
@@ -77,6 +99,14 @@ pub static MAESTRO_CONFIG: LazyLock<MaestroConfig> = LazyLock::new(|| {
 });
 
 #[ctor]
-fn parse_config() {
+fn initialize() {
     LazyLock::force(&MAESTRO_CONFIG);
+    let workdir = match setup_session_workdir() {
+        Ok(v) => v,
+        Err(e) => {
+            eprintln!("Failed to setup session workdir: {e}");
+            exit(1)
+        }
+    };
+    let _ = session::SESSION_WORKDIR.set(workdir);
 }

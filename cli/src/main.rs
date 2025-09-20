@@ -1,17 +1,25 @@
-use crate::{bundle::build_and_bundle, init::initialize, toolchain::install_toolchain};
+use crate::{build::build_project, bundle::build_and_bundle, cache::prep_cache, init::initialize};
 use clap::Parser;
-use std::{borrow::Cow, env, error::Error, path::PathBuf, process};
+use std::{
+    borrow::Cow,
+    env,
+    error::Error,
+    path::PathBuf,
+    process::{self, ExitStatus},
+};
 
+mod build;
 mod bundle;
+mod cache;
 mod init;
-mod toolchain;
 
 fn main() {
-    let command = Command::parse();
+    let command = SubCommand::parse();
     if let Err(e) = match command {
-        Command::Init { path } => initialize(path),
-        Command::Bundle { args } => build_and_bundle(args),
-        Command::InstallToolchain { toolchain } => install_toolchain(toolchain),
+        SubCommand::Init { path } => initialize(path),
+        SubCommand::Bundle { args } => build_and_bundle(args),
+        SubCommand::InstallCache => prep_cache().map(|_| {}),
+        SubCommand::Build { args } => build_project(args),
     } {
         eprintln!("{e}");
         process::exit(1);
@@ -20,7 +28,7 @@ fn main() {
 
 #[derive(Parser)]
 #[command(version, about)]
-enum Command {
+enum SubCommand {
     Init {
         path: Option<String>,
     },
@@ -28,25 +36,29 @@ enum Command {
         #[arg(trailing_var_arg = true)]
         args: Vec<String>,
     },
-    InstallToolchain {
-        toolchain: String,
+    InstallCache,
+    Build {
+        #[arg(trailing_var_arg = true)]
+        args: Vec<String>,
     },
 }
 
 const TOOLCHAIN_VERSION: &str = "1.90.0";
 
-type StringResult = Result<(), Cow<'static, str>>;
-fn mapper(e: &dyn Error, msg: &'static str) -> Cow<'static, str> {
+type StringErr = Cow<'static, str>;
+type StringResult = Result<(), StringErr>;
+
+fn mapper(e: &dyn Error, msg: &'static str) -> StringErr {
     Cow::Owned(format!("{msg}: {e}"))
 }
-fn static_err(msg: &'static str) -> Cow<'static, str> {
+fn static_err(msg: &'static str) -> StringErr {
     Cow::Borrowed(msg)
 }
-fn dynamic_err(msg: String) -> Cow<'static, str> {
+fn dynamic_err(msg: String) -> StringErr {
     Cow::Owned(msg)
 }
 
-fn find_crate_root() -> Result<PathBuf, Cow<'static, str>> {
+fn find_crate_root() -> Result<PathBuf, StringErr> {
     let working_directory =
         env::current_dir().map_err(|e| mapper(&e, "Failed to identify working directory"))?;
     let mut current_dir = working_directory;
@@ -61,4 +73,11 @@ fn find_crate_root() -> Result<PathBuf, Cow<'static, str>> {
         }
     }
     Ok(current_dir)
+}
+
+fn report_process_failure(status: ExitStatus, process: &'static str) -> StringErr {
+    Cow::Owned(match status.code() {
+        Some(code) => format!("{process} failed with exit code {code}"),
+        None => format!("{process} failed due to external signal"),
+    })
 }

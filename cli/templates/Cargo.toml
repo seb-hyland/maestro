@@ -2,4 +2,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-maestro = { git = "https://github.com/seb-hyland/maestro.git" }
+maestro = { git = "https://github.com/seb-hyland/maestro.git", optional = true }
+
+[features]
+default = ["dep:maestro"]

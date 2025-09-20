@@ -1,6 +1,6 @@
 use std::{env, fs, path::Path};
 
-use crate::{StringResult, dynamic_err, mapper, static_err};
+use crate::{StringResult, cache::prep_cache, dynamic_err, mapper, static_err};
 
 pub(crate) fn initialize(path: Option<String>) -> StringResult {
     let workdir = match path {
@@ -65,6 +65,10 @@ pub(crate) fn initialize(path: Option<String>) -> StringResult {
         )
         .map_err(|e| mapper(&e, "Failed to write src/main.rs"))?;
     }
+
+    env::set_current_dir(&workdir)
+        .map_err(|e| mapper(&e, "Failed to set current dir to newly initialized project"))?;
+    prep_cache()?;
 
     Ok(())
 }

@@ -7,4 +7,5 @@ pub use crate::{
     },
     process::StagingMode,
 };
+pub use dagger::dagger;
 pub use maestro_macros::process;

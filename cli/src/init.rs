@@ -70,7 +70,7 @@ pub(crate) fn initialize(path: Option<String>) -> StringResult {
         fs::create_dir(&src_dir).map_err(|e| mapper(&e, "Failed to create src/"))?;
         fs::write(
             src_dir.join("main.rs"),
-            include_str!("../../lib/examples/template.rs"),
+            include_str!("../templates/main.rs"),
         )
         .map_err(|e| mapper(&e, "Failed to write src/main.rs"))?;
     }

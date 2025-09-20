@@ -39,14 +39,6 @@ pub enum Container {
     Docker(Cow<'static, str>),
     Apptainer(Cow<'static, str>),
 }
-impl Container {
-    pub fn from_docker(image: &'static str) -> Self {
-        Self::Docker(Cow::Borrowed(image))
-    }
-    pub fn from_apptainer(image: &'static str) -> Self {
-        Self::Apptainer(Cow::Borrowed(image))
-    }
-}
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]

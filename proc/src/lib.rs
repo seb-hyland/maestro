@@ -314,8 +314,12 @@ pub fn process(input: TokenStream) -> TokenStream {
     let container = match definition.container {
         None => quote! { None },
         Some(container) => match container {
-            Container::Docker(img) => quote! { Some(maestro::Container::from_docker(#img)) },
-            Container::Apptainer(img) => quote! { Some(maestro::Container::from_apptainer(#img)) },
+            Container::Docker(img) => {
+                quote! { Some(maestro::Container::Docker(::std::borrow::Cow::Borrowed(#img))) }
+            }
+            Container::Apptainer(img) => {
+                quote! { Some(maestro::Container::Apptainer(::std::borrow::Cow::Borrowed(#img))) }
+            }
         },
     };
 

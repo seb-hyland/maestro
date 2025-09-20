@@ -1,6 +1,7 @@
 use crate::Process;
 use std::{io, path::PathBuf};
 
+pub mod generic;
 pub mod local;
 pub mod slurm;
 

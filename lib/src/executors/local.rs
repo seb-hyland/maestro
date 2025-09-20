@@ -36,7 +36,7 @@ impl Executor for LocalExecutor {
         process.stage_inputs(&mut launcher_handle, &workdir, staging_mode)?;
         writeln!(
             launcher_handle,
-            "echo -e \"{LP} Launching local process\\nstdout: .maestro.out\\nstderr: .maestro.err\""
+            "echo -e \":: Launching local process\\nstdout: .maestro.out\\nstderr: .maestro.err\""
         )?;
         Process::write_execution(launcher_handle, &process)?;
 

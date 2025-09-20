@@ -7,6 +7,6 @@ edition = "2024"
 rand = "0.9.1"
 maestro-macros = { path = "../proc", features = ["check_scripts"] }
 dagger = { version = "0.1.6", git = "https://github.com/seb-hyland/dagger.git" }
-serde = { version = "1.0.225", features = ["derive"], default-features = false }
+serde = { version = "1.0.225", features = ["std", "derive"], default-features = false }
 toml = { version = "0.9.7", features = ["parse", "serde"], default-features = false }
 ctor = "0.5.0"

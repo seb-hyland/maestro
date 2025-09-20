@@ -1,2 +1,6 @@
-lib/examples/template.rs:15:18
+:1:0
 - cat
+:1:0
+- ls
+- gromacs
+- sleep

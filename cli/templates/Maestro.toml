@@ -1,0 +1,5 @@
+[executor]
+type = "Local"
+staging_mode = "Copy"
+
+[args]

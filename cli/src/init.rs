@@ -1,6 +1,6 @@
 use std::{env, fs, path::Path};
 
-use crate::{dynamic_err, mapper, static_err, StringResult};
+use crate::{StringResult, dynamic_err, mapper, static_err};
 
 pub(crate) fn initialize(path: Option<String>) -> StringResult {
     let workdir = match path {

@@ -1,4 +1,2 @@
-lib/examples/workflow.rs:28:18
-- ls
-- gromacs
-- sleep
+lib/examples/template.rs:15:18
+- cat

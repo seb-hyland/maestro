@@ -1,10 +1,10 @@
 pub use crate::{
-    Container, StagingMode,
+    Container, MAESTRO_CONFIG, Process,
     executors::{
         Executor,
-        generic::GenericExecutor,
         local::LocalExecutor,
         slurm::{MailType, Memory, MemoryConfig, SlurmConfig, SlurmExecutor, SlurmTime},
     },
+    process::StagingMode,
 };
 pub use maestro_macros::process;

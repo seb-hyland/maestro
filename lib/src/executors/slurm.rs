@@ -9,9 +9,14 @@ use std::{
 
 use serde::Deserialize;
 
-use crate::{CheckTime, LP, Process, StagingMode, executors::Executor};
+use crate::{
+    LP, Process,
+    executors::Executor,
+    process::{CheckTime, StagingMode},
+};
 
 #[derive(Clone, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SlurmExecutor {
     #[serde(default = "default_poll_rate")]
     poll_rate: Duration,
@@ -83,7 +88,7 @@ pub struct SlurmConfig {
 }
 
 #[derive(Clone, Copy, Default, Deserialize)]
-#[serde(default)]
+#[serde(default, deny_unknown_fields)]
 pub struct SlurmTime {
     days: u16,
     hours: u16,
@@ -131,6 +136,7 @@ impl Display for SlurmTime {
 }
 
 #[derive(Clone, Copy, Deserialize)]
+#[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum MailType {
     None,
     All,
@@ -140,8 +146,11 @@ pub enum MailType {
     Requeue,
     InvalidDepend,
     StageOut,
+    #[serde(rename = "TIME_LIMIT_50")]
     TimeLimit50,
+    #[serde(rename = "TIME_LIMIT_80")]
     TimeLimit80,
+    #[serde(rename = "TIME_LIMIT_90")]
     TimeLimit90,
     TimeLimit,
     ArrayTasks,
@@ -182,7 +191,7 @@ impl Display for MailTypeList {
 }
 
 #[derive(Clone, Copy, Deserialize)]
-#[serde(tag = "type", content = "amount")]
+#[serde(tag = "type", content = "amount", rename_all = "snake_case")]
 pub enum MemoryConfig {
     PerNode(Memory),
     PerCpu(Memory),

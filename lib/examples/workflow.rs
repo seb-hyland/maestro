@@ -2,38 +2,12 @@ use maestro::prelude::*;
 use std::{
     io,
     path::{Path, PathBuf},
-    sync::LazyLock,
 };
 
 fn main() {
+    println!("{}", MAESTRO_CONFIG["print_statement"]);
     test_workflow(0).unwrap();
 }
-
-static EXECUTOR_GENERIC: LazyLock<GenericExecutor> = LazyLock::new(|| {
-    let toml_str = r#"
-        [Local]
-        staging_mode = "Copy"
-    "#;
-    toml::from_str(toml_str).unwrap()
-});
-static EXECUTOR_SLURM_GENERIC: LazyLock<GenericExecutor> = LazyLock::new(|| {
-    let toml_str = r#"
-        [Slurm]
-        staging_mode = "Copy"
-        cpus = 8
-        memory = { type = "PerNode", amount = 8192 }
-        tasks = 1
-        nodes = 1
-        time = { days = 1 }
-        account = "st-shallam-1"
-        mail_user = "myemail@gmail.com"
-        mail_type = ["All"]
-        additional_options = [
-            ["qos", "high"]
-        ]
-    "#;
-    toml::from_str(toml_str).unwrap()
-});
 
 fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
     let test_fasta = Path::new("lib/examples/data/seq1.fasta");
@@ -58,5 +32,5 @@ fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
         ls -R "$test_dir" > "$output_path"
         "#
     };
-    EXECUTOR_SLURM_GENERIC.exe(process)
+    MAESTRO_CONFIG.execute(process)
 }

@@ -1,6 +1,10 @@
 use serde::Deserialize;
 
-use crate::{CheckTime, LP, Process, StagingMode, executors::Executor};
+use crate::{
+    LP, Process,
+    executors::Executor,
+    process::{CheckTime, StagingMode},
+};
 use std::{
     io::{self, Write as _},
     path::PathBuf,
@@ -8,6 +12,7 @@ use std::{
 };
 
 #[derive(Clone, Copy, Deserialize, Default)]
+#[serde(deny_unknown_fields)]
 pub struct LocalExecutor {
     #[serde(default)]
     staging_mode: StagingMode,

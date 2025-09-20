@@ -4,7 +4,13 @@ use crate::{
     cache::prep_cache,
     init::initialize,
 };
-use clap::{Parser, Subcommand};
+use clap::{
+    Parser,
+    builder::{
+        Styles,
+        styling::{AnsiColor, Color, Style},
+    },
+};
 use std::{
     borrow::Cow,
     env,
@@ -17,6 +23,9 @@ mod build;
 mod bundle;
 mod cache;
 mod init;
+
+type StringErr = Cow<'static, str>;
+type StringResult = Result<(), StringErr>;
 
 fn main() {
     let command = Cmd::parse();
@@ -33,7 +42,7 @@ fn main() {
 }
 
 #[derive(Parser)]
-#[command(version, about)]
+#[command(version, about, styles = help_style())]
 enum Cmd {
     Init {
         path: Option<String>,
@@ -53,10 +62,21 @@ enum Cmd {
     },
 }
 
-const TOOLCHAIN_VERSION: &str = "1.90.0";
-
-type StringErr = Cow<'static, str>;
-type StringResult = Result<(), StringErr>;
+fn help_style() -> Styles {
+    Styles::default()
+        .header(bold_with_colour(AnsiColor::BrightGreen))
+        .usage(bold_with_colour(AnsiColor::BrightGreen))
+        .literal(bold_with_colour(AnsiColor::BrightCyan))
+        .placeholder(bold_with_colour(AnsiColor::BrightCyan))
+        .error(bold_with_colour(AnsiColor::BrightRed))
+        .invalid(bold_with_colour(AnsiColor::BrightRed))
+}
+fn get_colour(colour: AnsiColor) -> Option<Color> {
+    Some(Color::Ansi(colour))
+}
+fn bold_with_colour(colour: AnsiColor) -> Style {
+    Style::new().bold().fg_color(get_colour(colour))
+}
 
 fn mapper(e: &dyn Error, msg: &'static str) -> StringErr {
     Cow::Owned(format!("{msg}: {e}"))

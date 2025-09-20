@@ -2,8 +2,10 @@ use crate::{
     Process,
     prelude::{Executor, LocalExecutor, SlurmExecutor},
 };
+use serde::Deserialize;
 use std::{io, path::PathBuf};
 
+#[derive(Clone, Deserialize)]
 pub enum GenericExecutor {
     Local(LocalExecutor),
     Slurm(Box<SlurmExecutor>),

@@ -9,23 +9,30 @@ fn main() {
     test_workflow(0).unwrap();
 }
 
-static EXECUTOR: LazyLock<GenericExecutor> = LazyLock::new(|| {
-    GenericExecutor::Local(LocalExecutor::default().with_staging_mode(StagingMode::Symlink))
+static EXECUTOR_GENERIC: LazyLock<GenericExecutor> = LazyLock::new(|| {
+    let toml_str = r#"
+        [Local]
+        staging_mode = "Copy"
+    "#;
+    toml::from_str(toml_str).unwrap()
 });
-static EXECUTOR_SLURM: LazyLock<GenericExecutor> = LazyLock::new(|| {
-    GenericExecutor::Slurm(Box::new(
-        SlurmExecutor::default()
-            .with_staging_mode(StagingMode::None)
-            .with_module("gcc")
-            .map_config(|config| {
-                config
-                    .with_account("st-shallam-1")
-                    .with_nodes(1)
-                    .with_cpus(1)
-                    .with_memory(MemoryConfig::PerNode(Memory::from_gb(8)))
-                    .with_time(SlurmTime::from_hours(1))
-            }),
-    ))
+static EXECUTOR_SLURM_GENERIC: LazyLock<GenericExecutor> = LazyLock::new(|| {
+    let toml_str = r#"
+        [Slurm]
+        staging_mode = "Copy"
+        cpus = 8
+        memory = { type = "PerNode", amount = 8192 }
+        tasks = 1
+        nodes = 1
+        time = { days = 1 }
+        account = "st-shallam-1"
+        mail_user = "myemail@gmail.com"
+        mail_type = ["All"]
+        additional_options = [
+            ["qos", "high"]
+        ]
+    "#;
+    toml::from_str(toml_str).unwrap()
 });
 
 fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
@@ -51,5 +58,5 @@ fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
         ls -R "$test_dir" > "$output_path"
         "#
     };
-    EXECUTOR.exe(process)
+    EXECUTOR_SLURM_GENERIC.exe(process)
 }

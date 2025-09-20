@@ -8,6 +8,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
+use serde::{Deserialize, Serialize};
+
 use crate::session::SESSION_WORKDIR;
 
 pub mod executors;
@@ -243,9 +245,10 @@ enum CheckTime {
     Output,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Deserialize, Default)]
 pub enum StagingMode {
     Copy,
+    #[default]
     Symlink,
     None,
 }

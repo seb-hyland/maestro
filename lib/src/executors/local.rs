@@ -1,3 +1,5 @@
+use serde::Deserialize;
+
 use crate::{CheckTime, LP, Process, StagingMode, executors::Executor};
 use std::{
     io::{self, Write as _},
@@ -5,17 +7,10 @@ use std::{
     process::Command,
 };
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Deserialize, Default)]
 pub struct LocalExecutor {
+    #[serde(default)]
     staging_mode: StagingMode,
-}
-
-impl Default for LocalExecutor {
-    fn default() -> Self {
-        Self {
-            staging_mode: StagingMode::Symlink,
-        }
-    }
 }
 
 impl LocalExecutor {

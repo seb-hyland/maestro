@@ -7,20 +7,28 @@ use std::{
     time::Duration,
 };
 
+use serde::Deserialize;
+
 use crate::{CheckTime, LP, Process, StagingMode, executors::Executor};
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize)]
 pub struct SlurmExecutor {
+    #[serde(default = "default_poll_rate")]
     poll_rate: Duration,
     staging_mode: StagingMode,
+    #[serde(default)]
     modules: Vec<String>,
+    #[serde(flatten)]
     config: SlurmConfig,
+}
+const fn default_poll_rate() -> Duration {
+    Duration::from_secs(5)
 }
 
 impl Default for SlurmExecutor {
     fn default() -> Self {
         Self {
-            poll_rate: Duration::from_secs(5),
+            poll_rate: default_poll_rate(),
             staging_mode: StagingMode::Symlink,
             modules: Vec::new(),
             config: SlurmConfig::default(),
@@ -59,7 +67,7 @@ impl SlurmExecutor {
     }
 }
 
-#[derive(Default, Clone)]
+#[derive(Default, Clone, Deserialize)]
 pub struct SlurmConfig {
     cpus: Option<u64>,
     memory: Option<MemoryConfig>,
@@ -74,7 +82,8 @@ pub struct SlurmConfig {
     additional_options: Vec<(String, String)>,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Default, Deserialize)]
+#[serde(default)]
 pub struct SlurmTime {
     days: u16,
     hours: u16,
@@ -121,7 +130,7 @@ impl Display for SlurmTime {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Deserialize)]
 pub enum MailType {
     None,
     All,
@@ -157,7 +166,7 @@ impl Display for MailType {
         write!(f, "{flag}")
     }
 }
-#[derive(Clone)]
+#[derive(Clone, Deserialize)]
 struct MailTypeList(Vec<MailType>);
 impl Display for MailTypeList {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -172,7 +181,8 @@ impl Display for MailTypeList {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Deserialize)]
+#[serde(tag = "type", content = "amount")]
 pub enum MemoryConfig {
     PerNode(Memory),
     PerCpu(Memory),
@@ -186,7 +196,7 @@ impl Display for MemoryConfig {
     }
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Deserialize)]
 pub struct Memory(u64);
 impl Memory {
     pub fn from_mb(memory: u64) -> Self {

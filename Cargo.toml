@@ -1,3 +1,7 @@
 [workspace]
 resolver = "3"
 members = ["proc", "lib", "py", "cli", "session"]
+
+[workspace.dependencies]
+session_gen = { path = "session" }
+maestro_macros = { path = "proc" }

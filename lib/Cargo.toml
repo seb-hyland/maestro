@@ -4,8 +4,8 @@ version = "0.2.0"
 edition = "2024"
 
 [dependencies]
-maestro_macros = { path = "../proc", features = ["check_scripts"] }
-session_gen = { path = "../session" }
+maestro_macros = { workspace = true, features = ["check_scripts"] }
+session_gen = { workspace = true }
 dagger = { version = "0.1.6", git = "https://github.com/seb-hyland/dagger.git" }
 serde = { version = "1.0.225", features = ["std", "derive"], default-features = false }
 toml = { version = "0.9.7", features = ["parse", "serde"], default-features = false }

@@ -36,7 +36,7 @@ fn main() {
         Cmd::Bundle { args } => build_and_bundle(args),
         Cmd::UpgradeCache => prep_cache().map(|_| {}),
         Cmd::Build { args } => build_project(args, BuildType::Build),
-        Cmd::Run { args } => build_project(args, BuildType::Run),
+        Cmd::Run { background, args } => build_project(args, BuildType::Run(background)),
         Cmd::Kill { target } => kill_process(&target),
     } {
         eprintln!("{e}");
@@ -60,6 +60,9 @@ enum Cmd {
         args: Vec<String>,
     },
     Run {
+        #[arg(short, long, default_value_t = false)]
+        background: bool,
+
         #[arg(trailing_var_arg = true)]
         args: Vec<String>,
     },

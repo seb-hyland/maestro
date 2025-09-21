@@ -1,23 +1,18 @@
-use crate::{
-    executors::{Executor, generic::GenericExecutor},
-    session::setup_session_workdir,
-};
+use crate::{executors::generic::GenericExecutor, session::setup_session_workdir};
 use ctor::ctor;
+pub use inventory::submit as submit_request;
 use serde::Deserialize;
 use std::{
     borrow::Cow,
     collections::HashMap,
     env,
     fs::{self},
-    io::{self},
-    ops::Index,
     path::PathBuf,
     process::exit,
     sync::LazyLock,
 };
 
 pub mod executors;
-mod macros;
 pub mod prelude;
 pub mod process;
 mod session;
@@ -45,45 +40,24 @@ pub enum Container {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct MaestroConfig {
-    executor: GenericExecutor,
+#[doc(hidden)]
+pub struct TomlConfig {
+    pub executor: GenericExecutor,
     #[serde(default)]
-    custom_executor: HashMap<String, GenericExecutor>,
-    args: HashMap<String, String>,
+    pub custom_executor: HashMap<String, MaybeAliasedExecutor>,
+    pub args: HashMap<String, String>,
 }
-impl MaestroConfig {
-    fn exe_inner(process: Process, executor: &GenericExecutor) -> io::Result<Vec<PathBuf>> {
-        match &executor {
-            GenericExecutor::Local(executor) => executor.exe(process),
-            GenericExecutor::Slurm(executor) => executor.exe(process),
-        }
-    }
-
-    pub fn exe(&self, process: Process) -> io::Result<Vec<PathBuf>> {
-        Self::exe_inner(process, &self.executor)
-    }
-    pub fn exe_custom(&self, process: Process, executor_name: &str) -> io::Result<Vec<PathBuf>> {
-        let executor = match self.custom_executor.get(executor_name) {
-            Some(executor) => executor,
-            None => {
-                return Err(io::Error::new(
-                    io::ErrorKind::NotFound,
-                    format!("Executor {executor_name} not found in configuration!"),
-                ));
-            }
-        };
-        Self::exe_inner(process, executor)
-    }
-
-    pub fn get(&self, arg: &str) -> Option<&str> {
-        self.args.get(arg).map(|v| v.as_str())
-    }
+#[derive(Deserialize)]
+#[serde(untagged)]
+pub enum MaybeAliasedExecutor {
+    Alias { alias: String },
+    Executor(GenericExecutor),
 }
-impl Index<&str> for MaestroConfig {
-    type Output = String;
-    fn index(&self, index: &str) -> &Self::Output {
-        &self.args[index]
-    }
+
+pub struct MaestroConfig {
+    pub executor: GenericExecutor,
+    pub custom_executors: HashMap<String, GenericExecutor>,
+    pub args: HashMap<String, String>,
 }
 
 pub static MAESTRO_CONFIG: LazyLock<MaestroConfig> = LazyLock::new(|| {
@@ -92,15 +66,93 @@ pub static MAESTRO_CONFIG: LazyLock<MaestroConfig> = LazyLock::new(|| {
         eprintln!("Failed to read config file: {e}");
         exit(1)
     });
-    toml::from_str(&file_contents).unwrap_or_else(|e| {
+    let mut config: TomlConfig = toml::from_str(&file_contents).unwrap_or_else(|e| {
         eprintln!("Failed to parse Maestro.toml: {e}");
         exit(1)
-    })
+    });
+    config.custom_executor.insert(
+        "default".to_string(),
+        MaybeAliasedExecutor::Executor(config.executor.clone()),
+    );
+
+    let canonicalized_executors = config
+        .custom_executor
+        .iter()
+        .map(|(name, exec)| {
+            let executor = match exec {
+                MaybeAliasedExecutor::Executor(exec) => exec.clone(),
+                MaybeAliasedExecutor::Alias { alias } => {
+                    let canonical_path = config.custom_executor.get(alias).unwrap_or_else(|| {
+                        eprintln!(r#"Unable to resolve executor alias "{alias}""#);
+                        exit(1)
+                    });
+                    match canonical_path {
+                        MaybeAliasedExecutor::Executor(exe) => exe.clone(),
+                        MaybeAliasedExecutor::Alias { .. } => {
+                            eprintln!(
+                                r#"Chained aliases ("{name}" -> "{alias}" -> ..) are not accepted"#
+                            );
+                            exit(1)
+                        }
+                    }
+                }
+            };
+            (name.clone(), executor)
+        })
+        .collect();
+
+    MaestroConfig {
+        executor: config.executor,
+        custom_executors: canonicalized_executors,
+        args: config.args,
+    }
 });
+
+pub struct RequestedExecutor(pub &'static str, pub &'static str, pub u32, pub u32);
+inventory::collect!(RequestedExecutor);
+pub struct RequestedArg(pub &'static str, pub &'static str, pub u32, pub u32);
+inventory::collect!(RequestedArg);
+
+#[macro_export]
+macro_rules! execute {
+    ($process:expr) => {{ $crate::MAESTRO_CONFIG.executor.exe($process) }};
+    ($name:literal, $process:expr) => {{
+        $crate::submit_request! {
+            $crate::RequestedExecutor($name, file!(), line!(), column!())
+        };
+        $crate::MAESTRO_CONFIG.custom_executors[$name].exe($process)
+    }};
+}
+
+#[macro_export]
+macro_rules! arg {
+    ($arg:literal) => {{
+        $crate::submit_request! {
+            $crate::RequestedArg($arg, file!(), line!(), column!())
+        };
+        &$crate::MAESTRO_CONFIG.args[$arg]
+    }};
+}
 
 #[ctor]
 fn initialize() {
     LazyLock::force(&MAESTRO_CONFIG);
+    for RequestedExecutor(name, file, line, col) in inventory::iter::<RequestedExecutor> {
+        if !MAESTRO_CONFIG.custom_executors.contains_key(*name) {
+            eprintln!(
+                "Custom executor \"{name}\" expected to be defined in Maestro.toml.\nLocation: {file}:{line}:{col}"
+            );
+            exit(1)
+        }
+    }
+    for RequestedArg(arg, file, line, col) in inventory::iter::<RequestedArg> {
+        if !MAESTRO_CONFIG.args.contains_key(*arg) {
+            eprintln!(
+                "Arg \"{arg}\" expected to be defined in Maestro.toml.\nLocation: {file}:{line}:{col}"
+            );
+            exit(1)
+        }
+    }
     let workdir = match setup_session_workdir() {
         Ok(v) => v,
         Err(e) => {

@@ -370,6 +370,7 @@ version = "0.2.0"
 dependencies = [
  "ctor",
  "dagger",
+ "inventory",
  "maestro_macros",
  "serde",
  "session_gen",

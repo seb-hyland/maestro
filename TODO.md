@@ -4,4 +4,6 @@
 - [X] Support generic executor
 - [X] Support TOML parsing
 - [X] dtor for .maestro_running
-- [] CLI
+- [X] CLI
+- [] Make Container/Executor part of process definition
+- [] Aliased executors

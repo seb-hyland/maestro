@@ -1,6 +1,7 @@
 use maestro::prelude::*;
 
 fn main() {
+    println!("{}", arg!("init_msg"));
     test_workflow(0).unwrap();
 }
 
@@ -16,5 +17,5 @@ fn test_workflow(runid: i32) -> io::Result<Vec<PathBuf>> {
         cat "$input_path" > "$out_path"
         "#
     };
-    MAESTRO_CONFIG.exe(process)
+    execute!(process)
 }

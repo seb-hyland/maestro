@@ -1,4 +1,4 @@
-lib/examples/workflow.rs:29:18
+:1:0
 - DOCKER { ubuntu:rolling }
 - ls
 - gromacs

@@ -1,6 +1,6 @@
 use crate::{
     build::{BuildType, build_project},
-    bundle::bundle_project,
+    bundle::{Compression, bundle_project},
     cache::prep_cache,
     init::initialize,
     kill::kill_process,
@@ -33,7 +33,10 @@ fn main() {
     let command = Cmd::parse();
     if let Err(e) = match command {
         Cmd::Init { path } => initialize(path),
-        Cmd::Bundle { cargo_args } => bundle_project(cargo_args),
+        Cmd::Bundle {
+            cargo_args,
+            compress,
+        } => bundle_project(cargo_args, compress),
         Cmd::UpgradeCache => prep_cache().map(|_| {}),
         Cmd::Build { cargo_args } => build_project(cargo_args, Vec::new(), BuildType::Build),
         Cmd::Run {
@@ -56,6 +59,9 @@ enum Cmd {
         path: Option<String>,
     },
     Bundle {
+        #[arg(short, long, value_enum)]
+        compress: Option<Compression>,
+
         #[arg(trailing_var_arg = true)]
         cargo_args: Vec<String>,
     },

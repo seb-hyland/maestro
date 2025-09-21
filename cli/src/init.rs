@@ -57,6 +57,11 @@ pub(crate) fn initialize(path: Option<String>) -> StringResult {
             .map_err(|e| mapper(&e, "Failed to write Maestro.toml"))?;
     }
     {
+        let gitignore = workdir.join(".gitignore");
+        fs::write(gitignore, include_str!("../templates/.gitignore"))
+            .map_err(|e| mapper(&e, "Failed to write .gitignore"))?;
+    }
+    {
         let data_dir = workdir.join("data");
         fs::create_dir(&data_dir).map_err(|e| mapper(&e, "Failed to create data/"))?;
         fs::write(

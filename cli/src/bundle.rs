@@ -1,13 +1,33 @@
 use crate::{
     StringResult,
     build::{BuildType, build_project},
-    find_crate_root, mapper,
+    find_crate_root, mapper, report_process_failure,
 };
-use std::{ffi::OsStr, fs, io, os::unix::ffi::OsStrExt, path::Path};
+use clap::ValueEnum;
+use std::{
+    ffi::OsStr,
+    fs, io,
+    os::unix::ffi::OsStrExt,
+    path::Path,
+    process::{Command, Stdio},
+};
 
-pub(crate) fn bundle_project(cargo_args: Vec<String>) -> StringResult {
+#[derive(Clone, Copy, ValueEnum)]
+pub(crate) enum Compression {
+    Zip,
+    Gzip,
+    Xz,
+    Bzip2,
+    Zstd,
+}
+
+pub(crate) fn bundle_project(
+    cargo_args: Vec<String>,
+    compression: Option<Compression>,
+) -> StringResult {
     let crate_root = find_crate_root()?;
     let bundle_dir = crate_root.join("maestro_bundle");
+
     if bundle_dir.exists() {
         fs::remove_dir_all(&bundle_dir)
             .map_err(|e| mapper(&e, "Failed to clean maestro_bundle directory"))?;
@@ -60,6 +80,55 @@ pub(crate) fn bundle_project(cargo_args: Vec<String>) -> StringResult {
     }
     copy_recursively(&crate_root.join("data/"), &bundle_dir.join("data/"))
         .map_err(|e| mapper(&e, "Failed to copy data/ to bundle directory"))?;
+
+    if let Some(compression) = compression {
+        let bundle_name = bundle_dir.file_name().unwrap();
+        let mut command = match compression {
+            Compression::Zip => {
+                let mut cmd = Command::new("zip");
+                cmd.current_dir(&crate_root)
+                    .args(["-r", "maestro_bundle.zip"])
+                    .arg(bundle_name);
+                cmd
+            }
+            Compression::Gzip => {
+                let mut cmd = Command::new("tar");
+                cmd.current_dir(&crate_root)
+                    .args(["-czf", "maestro_bundle.tar.gz"])
+                    .arg(bundle_name);
+                cmd
+            }
+            Compression::Xz => {
+                let mut cmd = Command::new("tar");
+                cmd.current_dir(&crate_root)
+                    .args(["-cJf", "maestro_bundle.tar.xz"])
+                    .arg(bundle_name);
+                cmd
+            }
+            Compression::Bzip2 => {
+                let mut cmd = Command::new("tar");
+                cmd.current_dir(&crate_root)
+                    .args(["-cjf", "maestro_bundle.tar.bz2"])
+                    .arg(bundle_name);
+                cmd
+            }
+            Compression::Zstd => {
+                let mut cmd = Command::new("tar");
+                cmd.current_dir(&crate_root)
+                    .args(["--zstd", "-cf", "maestro_bundle.tar.zst"])
+                    .arg(bundle_name);
+                cmd
+            }
+        };
+        let status = command
+            .stdout(Stdio::inherit())
+            .stderr(Stdio::inherit())
+            .status()
+            .map_err(|e| mapper(&e, "Failed to run compression"))?;
+        if !status.success() {
+            return Err(report_process_failure(status, "Compression"));
+        }
+    }
 
     Ok(())
 }

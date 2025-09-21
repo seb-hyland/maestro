@@ -8,6 +8,7 @@
 - [X] Aliased executors
 - [X] Make executor part of process definition -> dependencies.txt
 - [] Cache in home dir?
+- [] Doc comments?
 - [] Inheritance
 - [] Python bindings
 - [] ssh

@@ -2,7 +2,10 @@ use crate::dep_analysis::{
     ContainerDependency, DEPENDENCIES_FILE, ProcessDependencies, SHELL_EXCLUDES, analyze_depends,
 };
 use fxhash::FxHashSet;
-use proc_macro::TokenStream;
+use proc_macro::{
+    Delimiter, Literal, Punct, Span, TokenStream, TokenTree,
+    token_stream::{self, IntoIter},
+};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use rand::{Rng as _, distr::Uniform};
@@ -10,7 +13,9 @@ use std::{
     collections::HashMap,
     fs,
     io::Write as _,
+    iter::Peekable,
     path::Path,
+    str::FromStr,
     sync::{LazyLock, Mutex},
 };
 use syn::{
@@ -18,7 +23,7 @@ use syn::{
     parse::{self, Parse},
     parse_macro_input,
     punctuated::Punctuated,
-    token::{Comma, Eq},
+    token::{Comma, Eq, Slash},
 };
 
 #[cfg(feature = "check_scripts")]
@@ -26,7 +31,6 @@ mod checker;
 mod dep_analysis;
 
 struct ProcessDefinition {
-    docstr: Option<LitStr>,
     name: Option<Expr>,
     executor: Option<LitStr>,
     container: Option<Container>,
@@ -44,7 +48,6 @@ enum Container {
 
 mod kw {
     use syn::custom_keyword;
-    custom_keyword!(doc);
     custom_keyword!(executor);
     custom_keyword!(name);
     custom_keyword!(inputs);
@@ -60,7 +63,6 @@ mod kw {
 
 impl Parse for ProcessDefinition {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let mut docstr = None;
         let mut name = None;
         let mut executor = None;
         let mut container = None;
@@ -82,11 +84,7 @@ impl Parse for ProcessDefinition {
         }
 
         while !input.is_empty() {
-            if input.peek(kw::doc) {
-                let _: kw::doc = input.parse()?;
-                let _: Eq = input.parse()?;
-                docstr = Some(input.parse()?);
-            } else if input.peek(kw::name) {
+            if input.peek(kw::name) {
                 let _: kw::name = input.parse()?;
                 let _: Eq = input.parse()?;
                 name = Some(input.parse()?);
@@ -150,7 +148,6 @@ impl Parse for ProcessDefinition {
         };
 
         Ok(ProcessDefinition {
-            docstr,
             name,
             executor,
             container,
@@ -173,7 +170,57 @@ impl Parse for ProcessDefinition {
 /// ```
 #[proc_macro]
 pub fn process(input: TokenStream) -> TokenStream {
-    let definition = parse_macro_input!(input as ProcessDefinition);
+    let mut input_iter = input.clone().into_iter().peekable();
+    let (doc_strings, rest) = {
+        fn parse_doc(iter: &mut Peekable<token_stream::IntoIter>) -> Result<String, ()> {
+            let first_item = match iter.next() {
+                Some(TokenTree::Punct(p)) => p,
+                _ => unreachable!(),
+            };
+            if first_item.as_char() == '#' {
+                if let Some(TokenTree::Group(p)) = iter.next()
+                    && p.delimiter() == Delimiter::Bracket
+                {
+                    let mut inner_stream = p.stream().into_iter();
+                    if let Some(doc_ident_token) = inner_stream.next()
+                        && let TokenTree::Ident(doc_ident) = doc_ident_token
+                        && doc_ident.to_string() == "doc"
+                        && let Some(equal_token) = inner_stream.next()
+                        && let TokenTree::Punct(equal_punct) = equal_token
+                        && equal_punct.as_char() == '='
+                        && let Some(doc_token) = inner_stream.next()
+                        && let TokenTree::Literal(doc) = doc_token
+                    {
+                        let doc_str = doc.to_string();
+                        let trimmed_str = doc_str.trim();
+                        Ok(trimmed_str[1..doc_str.len() - 1].trim().to_string())
+                    } else {
+                        Err(())
+                    }
+                } else {
+                    Err(())
+                }
+            } else {
+                Err(())
+            }
+        }
+        let mut docs = Vec::new();
+        while let Some(TokenTree::Punct(_)) = input_iter.peek() {
+            match parse_doc(&mut input_iter) {
+                Ok(lit) => docs.push(lit),
+                Err(_) => {
+                    return syn::Error::new(
+                        Span::call_site().into(),
+                        "Macro can begin with a docstring or an identifier",
+                    )
+                    .into_compile_error()
+                    .into();
+                }
+            }
+        }
+        (docs, input_iter.collect())
+    };
+    let definition = parse_macro_input!(rest as ProcessDefinition);
 
     let literal = definition.literal;
     let literal_value = literal.value();
@@ -338,15 +385,19 @@ pub fn process(input: TokenStream) -> TokenStream {
             .into();
         }
     };
+    let docstring = doc_strings
+        .into_iter()
+        .map(|s| format!("# {s}"))
+        .reduce(|mut acc, s| {
+            acc.push('\n');
+            acc.push_str(&s);
+            acc
+        })
+        .unwrap_or("".to_string());
 
     {
         let mut lock = DEPENDENCIES_FILE.lock().unwrap();
-        let complete_string = if let Some(doc) = definition.docstr {
-            format!("# {}\n{}", doc.value(), toml_str)
-        } else {
-            toml_str
-        };
-        if let Err(e) = writeln!(lock, "{complete_string}") {
+        if let Err(e) = writeln!(lock, "{docstring}\n{toml_str}") {
             return syn::Error::new(
                 process_span,
                 format!("Failed to write into dependencies.txt: {e:#?}"),

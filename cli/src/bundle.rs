@@ -60,10 +60,10 @@ pub(crate) fn bundle_project(
     )
     .map_err(|e| mapper(&e, "Failed to copy Maestro.toml to bundle directory"))?;
     fs::copy(
-        crate_root.join("dependencies.txt"),
-        bundle_dir.join("dependencies.txt"),
+        crate_root.join("dependencies.toml"),
+        bundle_dir.join("dependencies.toml"),
     )
-    .map_err(|e| mapper(&e, "Failed to copy dependencies.txt to bundle directory"))?;
+    .map_err(|e| mapper(&e, "Failed to copy dependencies.toml to bundle directory"))?;
 
     fn copy_recursively(src: &Path, dst: &Path) -> io::Result<()> {
         fs::create_dir(dst)?;

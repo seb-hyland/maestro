@@ -1,11 +1,9 @@
-["lib/examples/workflow.rs:24:18"]
+# This is a docstring that describes this process
+# Maybe I talk more about what it does
+# ...so the user knows how they should configure its resources
+["lib/examples/workflow.rs:27:18"]
 executor = "default"
 engine = "Docker"
 image = "ubuntu:rolling"
 deps = ["ls", "gromacs"]
-
-# Hi!
-["lib/examples/workflow.rs:49:18"]
-executor = "chae"
-deps = ["ls", "tree", "cat", "mybin", "gromacs"]
 

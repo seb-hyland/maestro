@@ -3,4 +3,4 @@ type = "Local"
 staging_mode = "Copy"
 
 [args]
-init_msg = "An initialization message set in Maestro.toml"
+init_msg = "This is an initialization message set in Maestro.toml"

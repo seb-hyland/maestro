@@ -10,7 +10,7 @@ fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
     let test_dir = Path::new("lib/examples/data/");
     let output_path = Path::new("out.txt");
 
-    let process = process! {
+    process! {
         name = format!("test_{run}"),
         container = Docker("ubuntu:rolling"),
         inputs = [
@@ -26,8 +26,7 @@ fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
         cat "$test_dir"/seq2.fasta
         ls -R "$test_dir" > "$output_path"
         "#
-    };
-    execute!(process)
+    }
 }
 
 fn test_workflow_1(run: i32) -> io::Result<Vec<PathBuf>> {
@@ -35,9 +34,10 @@ fn test_workflow_1(run: i32) -> io::Result<Vec<PathBuf>> {
     let test_dir = Path::new("lib/examples/data/");
     let output_path = Path::new("out.txt");
 
-    let process = process! {
+    process! {
         name = format!("test_{run}"),
         doc = "Hi!",
+        executor = "chae",
         inputs = [
             test_fasta,
             test_dir
@@ -51,6 +51,5 @@ fn test_workflow_1(run: i32) -> io::Result<Vec<PathBuf>> {
         cat "$test_dir"/seq2.fasta
         ls -R "$test_dir" > "$output_path"
         "#
-    };
-    execute!(process)
+    }
 }

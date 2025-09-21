@@ -28,6 +28,7 @@ mod dep_analysis;
 struct ProcessDefinition {
     docstr: Option<LitStr>,
     name: Option<Expr>,
+    executor: Option<LitStr>,
     container: Option<Container>,
     inputs: Punctuated<Ident, Comma>,
     args: Punctuated<Ident, Comma>,
@@ -44,6 +45,7 @@ enum Container {
 mod kw {
     use syn::custom_keyword;
     custom_keyword!(doc);
+    custom_keyword!(executor);
     custom_keyword!(name);
     custom_keyword!(inputs);
     custom_keyword!(outputs);
@@ -60,6 +62,7 @@ impl Parse for ProcessDefinition {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut docstr = None;
         let mut name = None;
+        let mut executor = None;
         let mut container = None;
         let mut inputs = Punctuated::new();
         let mut args = Punctuated::new();
@@ -87,6 +90,10 @@ impl Parse for ProcessDefinition {
                 let _: kw::name = input.parse()?;
                 let _: Eq = input.parse()?;
                 name = Some(input.parse()?);
+            } else if input.peek(kw::executor) {
+                let _: kw::executor = input.parse()?;
+                let _: Eq = input.parse()?;
+                executor = Some(input.parse()?);
             } else if input.peek(kw::container) {
                 let _: kw::container = input.parse()?;
                 let _: Eq = input.parse()?;
@@ -145,6 +152,7 @@ impl Parse for ProcessDefinition {
         Ok(ProcessDefinition {
             docstr,
             name,
+            executor,
             container,
             inputs,
             args,
@@ -296,6 +304,11 @@ pub fn process(input: TokenStream) -> TokenStream {
     let mut root = HashMap::new();
     let dependencies = ProcessDependencies {
         doc: definition.docstr.map(|lit| lit.value()),
+        executor: definition
+            .executor
+            .as_ref()
+            .map(|lit| lit.value())
+            .unwrap_or("default".to_string()),
         container: definition
             .container
             .as_ref()
@@ -350,17 +363,27 @@ pub fn process(input: TokenStream) -> TokenStream {
             }
         },
     };
+    let executor = match definition.executor {
+        None => quote! { maestro::MAESTRO_CONFIG.executor.exe(process) },
+        Some(executor) => quote! {
+            maestro::submit_request! {
+                maestro::RequestedExecutor(#executor, file!(), line!(), column!())
+            };
+            maestro::MAESTRO_CONFIG.custom_executors[#executor].exe(process)
+        },
+    };
 
-    quote! {
-        maestro::Process::new(
+    quote! {{
+        let process = maestro::Process::new(
             #name.to_string(),
             #container,
             vec![#(#input_pairs),*],
             vec![#(#arg_pairs),*],
             vec![#(#output_pairs),*],
             ::std::borrow::Cow::Borrowed(#process_lit),
-        )
-    }
+        );
+        #executor
+    }}
     .into()
 }
 

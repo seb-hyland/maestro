@@ -6,7 +6,7 @@
 - [X] dtor for .maestro_running
 - [X] CLI
 - [X] Aliased executors
-- [] Make executor part of process definition -> dependencies.txt
+- [X] Make executor part of process definition -> dependencies.txt
 - [] Inheritance
 - [] Python bindings
 - [] ssh

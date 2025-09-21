@@ -1,5 +1,6 @@
 use crate::{
-    StringErr, dedent, find_crate_root, mapper, report_process_failure, rustc_version, static_err,
+    StringErr, dedent, dynamic_err, find_crate_root, mapper, report_process_failure, rustc_version,
+    static_err,
 };
 use std::{
     fs,
@@ -16,13 +17,17 @@ pub(crate) fn prep_cache() -> Result<PathBuf, StringErr> {
 
     let cmd = Command::new("cargo")
         .args(["vendor", "--versioned-dirs", ".maestro_cache/vendor"])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
         .current_dir(&crate_root)
-        .status()
+        .output()
         .map_err(|e| mapper(&e, "Failed to vendor dependencies"))?;
-    if !cmd.success() {
-        return Err(report_process_failure(cmd, "Dependency vendoring"));
+    if !cmd.status.success() {
+        let mut out_str = String::from_utf8_lossy(&cmd.stdout).to_string();
+        out_str.push_str(String::from_utf8_lossy(&cmd.stderr));
+        return Err(dynamic_err(format!(
+            "Dependency vendoring failed!\n{out_str}"
+        )));
     }
 
     let vendor_dir = cache_dir.join("vendor");

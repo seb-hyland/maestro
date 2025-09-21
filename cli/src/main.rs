@@ -142,8 +142,8 @@ fn dedent<S: ToString>(s: S) -> String {
         .lines()
         .map(|line| line.trim_start())
         .fold(String::new(), |mut acc, l| {
-            acc.push('\n');
             acc.push_str(l);
+            acc.push('\n');
             acc
         })
 }

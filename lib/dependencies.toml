@@ -4,8 +4,8 @@ engine = "Docker"
 image = "ubuntu:rolling"
 deps = ["ls", "gromacs"]
 
+# Hi!
 ["lib/examples/workflow.rs:49:18"]
-doc = "Hi!"
 executor = "chae"
 deps = ["ls", "tree", "cat", "mybin", "gromacs"]
 

@@ -303,7 +303,6 @@ pub fn process(input: TokenStream) -> TokenStream {
     let process_span = literal.span();
     let mut root = HashMap::new();
     let dependencies = ProcessDependencies {
-        doc: definition.docstr.map(|lit| lit.value()),
         executor: definition
             .executor
             .as_ref()
@@ -342,7 +341,12 @@ pub fn process(input: TokenStream) -> TokenStream {
 
     {
         let mut lock = DEPENDENCIES_FILE.lock().unwrap();
-        if let Err(e) = writeln!(lock, "{toml_str}") {
+        let complete_string = if let Some(doc) = definition.docstr {
+            format!("# {}\n{}", doc.value(), toml_str)
+        } else {
+            toml_str
+        };
+        if let Err(e) = writeln!(lock, "{complete_string}") {
             return syn::Error::new(
                 process_span,
                 format!("Failed to write into dependencies.txt: {e:#?}"),

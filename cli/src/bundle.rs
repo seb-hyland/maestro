@@ -19,6 +19,7 @@ pub(crate) enum Compression {
     Xz,
     Bzip2,
     Zstd,
+    Lzma,
 }
 
 pub(crate) fn bundle_project(
@@ -116,6 +117,13 @@ pub(crate) fn bundle_project(
                 let mut cmd = Command::new("tar");
                 cmd.current_dir(&crate_root)
                     .args(["--zstd", "-cf", "maestro_bundle.tar.zst"])
+                    .arg(bundle_name);
+                cmd
+            }
+            Compression::Lzma => {
+                let mut cmd = Command::new("tar");
+                cmd.current_dir(&crate_root)
+                    .args(["--lzma", "-cf", "maestro_bundle.tar.lzma"])
                     .arg(bundle_name);
                 cmd
             }

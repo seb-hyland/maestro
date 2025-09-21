@@ -7,8 +7,8 @@
 - [X] CLI
 - [X] Aliased executors
 - [X] Make executor part of process definition -> dependencies.txt
+- [X] Doc comments?
 - [] Cache in home dir?
-- [] Doc comments?
 - [] Inheritance
 - [] Python bindings
 - [] ssh

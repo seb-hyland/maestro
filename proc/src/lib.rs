@@ -2,10 +2,7 @@ use crate::dep_analysis::{
     ContainerDependency, DEPENDENCIES_FILE, ProcessDependencies, SHELL_EXCLUDES, analyze_depends,
 };
 use fxhash::FxHashSet;
-use proc_macro::{
-    Delimiter, Literal, Punct, Span, TokenStream, TokenTree,
-    token_stream::{self, IntoIter},
-};
+use proc_macro::{Delimiter, Span, TokenStream, TokenTree, token_stream};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use rand::{Rng as _, distr::Uniform};
@@ -15,7 +12,6 @@ use std::{
     io::Write as _,
     iter::Peekable,
     path::Path,
-    str::FromStr,
     sync::{LazyLock, Mutex},
 };
 use syn::{
@@ -23,7 +19,7 @@ use syn::{
     parse::{self, Parse},
     parse_macro_input,
     punctuated::Punctuated,
-    token::{Comma, Eq, Slash},
+    token::{Comma, Eq},
 };
 
 #[cfg(feature = "check_scripts")]
@@ -211,7 +207,7 @@ pub fn process(input: TokenStream) -> TokenStream {
                 Err(_) => {
                     return syn::Error::new(
                         Span::call_site().into(),
-                        "Macro can begin with a docstring or an identifier",
+                        "process! macro must begin with either a docstring or an identifier",
                     )
                     .into_compile_error()
                     .into();
@@ -220,6 +216,7 @@ pub fn process(input: TokenStream) -> TokenStream {
         }
         (docs, input_iter.collect())
     };
+    println!("Rest: {rest:#?}");
     let definition = parse_macro_input!(rest as ProcessDefinition);
 
     let literal = definition.literal;
@@ -331,19 +328,19 @@ pub fn process(input: TokenStream) -> TokenStream {
 
     let mut dependencies = FxHashSet::default();
     let mut excludes = SHELL_EXCLUDES.clone();
-    let mut ignore_all = false;
+    let mut ignore_all_autodetected = false;
     for dependency_lit in definition.dependencies {
         let dependency = dependency_lit.value();
         if dependency == "!" {
-            ignore_all = true;
+            ignore_all_autodetected = true;
         }
-        if let Some(excluded) = dependency.strip_prefix('!') {
-            excludes.insert(excluded.to_string());
+        if let Some(excluded_dep) = dependency.strip_prefix('!') {
+            excludes.insert(excluded_dep.to_string());
         } else {
             dependencies.insert(dependency);
         }
     }
-    if !ignore_all {
+    if !ignore_all_autodetected {
         analyze_depends(&process, &mut excludes, &mut dependencies);
     }
 
@@ -393,11 +390,15 @@ pub fn process(input: TokenStream) -> TokenStream {
             acc.push_str(&s);
             acc
         })
+        .map(|mut str| {
+            str.push('\n');
+            str
+        })
         .unwrap_or("".to_string());
 
     {
         let mut lock = DEPENDENCIES_FILE.lock().unwrap();
-        if let Err(e) = writeln!(lock, "{docstring}\n{toml_str}") {
+        if let Err(e) = writeln!(lock, "{docstring}{toml_str}") {
             return syn::Error::new(
                 process_span,
                 format!("Failed to write into dependencies.txt: {e:#?}"),

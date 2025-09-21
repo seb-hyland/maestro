@@ -1,3 +1,5 @@
+use fxhash::{FxBuildHasher, FxHashSet};
+use serde::Serialize;
 use std::{
     env,
     fs::File,
@@ -5,14 +7,26 @@ use std::{
     sync::{LazyLock, Mutex},
 };
 
-use fxhash::{FxBuildHasher, FxHashSet};
-
 pub(crate) static DEPENDENCIES_FILE: LazyLock<Mutex<File>> = LazyLock::new(|| {
     Mutex::new(
-        File::create(Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap()).join("dependencies.txt"))
+        File::create(Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap()).join("dependencies.toml"))
             .expect("Failed to open dependencies file for writing!"),
     )
 });
+
+#[derive(Serialize)]
+pub(crate) struct ProcessDependencies {
+    pub(crate) doc: Option<String>,
+    #[serde(flatten)]
+    pub(crate) container: Option<ContainerDependency>,
+    pub(crate) deps: Vec<String>,
+}
+#[derive(Serialize)]
+#[serde(tag = "engine")]
+pub(crate) enum ContainerDependency {
+    Docker { image: String },
+    Apptainer { image: String },
+}
 
 pub(crate) fn analyze_depends(
     script: &str,

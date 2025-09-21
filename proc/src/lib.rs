@@ -1,12 +1,15 @@
-use crate::dep_analysis::{DEPENDENCIES_FILE, SHELL_EXCLUDES, analyze_depends};
+use crate::dep_analysis::{
+    ContainerDependency, DEPENDENCIES_FILE, ProcessDependencies, SHELL_EXCLUDES, analyze_depends,
+};
 use fxhash::FxHashSet;
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use rand::{Rng as _, distr::Uniform};
 use std::{
-    fs::{self},
-    io::{self, Write as _},
+    collections::HashMap,
+    fs,
+    io::Write as _,
     path::Path,
     sync::{LazyLock, Mutex},
 };
@@ -21,9 +24,9 @@ use syn::{
 #[cfg(feature = "check_scripts")]
 mod checker;
 mod dep_analysis;
-// mod container;
 
 struct ProcessDefinition {
+    docstr: Option<LitStr>,
     name: Option<Expr>,
     container: Option<Container>,
     inputs: Punctuated<Ident, Comma>,
@@ -40,6 +43,7 @@ enum Container {
 
 mod kw {
     use syn::custom_keyword;
+    custom_keyword!(doc);
     custom_keyword!(name);
     custom_keyword!(inputs);
     custom_keyword!(outputs);
@@ -54,6 +58,7 @@ mod kw {
 
 impl Parse for ProcessDefinition {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut docstr = None;
         let mut name = None;
         let mut container = None;
         let mut inputs = Punctuated::new();
@@ -74,7 +79,11 @@ impl Parse for ProcessDefinition {
         }
 
         while !input.is_empty() {
-            if input.peek(kw::name) {
+            if input.peek(kw::doc) {
+                let _: kw::doc = input.parse()?;
+                let _: Eq = input.parse()?;
+                docstr = Some(input.parse()?);
+            } else if input.peek(kw::name) {
                 let _: kw::name = input.parse()?;
                 let _: Eq = input.parse()?;
                 name = Some(input.parse()?);
@@ -134,6 +143,7 @@ impl Parse for ProcessDefinition {
         };
 
         Ok(ProcessDefinition {
+            docstr,
             name,
             container,
             inputs,
@@ -283,32 +293,50 @@ pub fn process(input: TokenStream) -> TokenStream {
     }
 
     let process_span = literal.span();
-    if let Err(e) = || -> Result<(), io::Error> {
-        let mut lock = DEPENDENCIES_FILE.lock().unwrap();
-        writeln!(
-            lock,
+    let mut root = HashMap::new();
+    let dependencies = ProcessDependencies {
+        doc: definition.docstr.map(|lit| lit.value()),
+        container: definition
+            .container
+            .as_ref()
+            .map(|container| match container {
+                Container::Docker(img) => ContainerDependency::Docker { image: img.value() },
+                Container::Apptainer(img) => ContainerDependency::Apptainer { image: img.value() },
+            }),
+        deps: dependencies.into_iter().collect(),
+    };
+    root.insert(
+        format!(
             "{}:{}:{}",
             process_span.file(),
             process_span.start().line,
             process_span.start().column
-        )?;
-        if let Some(container) = &definition.container {
-            match container {
-                Container::Docker(img) => writeln!(lock, "- DOCKER {{ {} }}", img.value()),
-                Container::Apptainer(img) => writeln!(lock, "- APPTAINER {{ {} }}", img.value()),
-            }?;
+        ),
+        dependencies,
+    );
+
+    let toml_str = match toml::to_string(&root) {
+        Ok(toml_str) => toml_str,
+        Err(e) => {
+            return syn::Error::new(
+                process_span,
+                format!("Failed to serialize dependencies to toml: {e}"),
+            )
+            .into_compile_error()
+            .into();
         }
-        for dependency in dependencies {
-            writeln!(lock, "- {}", dependency)?;
+    };
+
+    {
+        let mut lock = DEPENDENCIES_FILE.lock().unwrap();
+        if let Err(e) = writeln!(lock, "{toml_str}") {
+            return syn::Error::new(
+                process_span,
+                format!("Failed to write into dependencies.txt: {e:#?}"),
+            )
+            .into_compile_error()
+            .into();
         }
-        Ok(())
-    }() {
-        return syn::Error::new(
-            process_span,
-            format!("Failed to write into dependencies.txt: {e:#?}"),
-        )
-        .into_compile_error()
-        .into();
     }
 
     let container = match definition.container {

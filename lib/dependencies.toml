@@ -1,0 +1,9 @@
+["lib/examples/workflow.rs:24:18"]
+engine = "Docker"
+image = "ubuntu:rolling"
+deps = ["ls", "gromacs"]
+
+["lib/examples/workflow.rs:49:18"]
+doc = "Hi!"
+deps = ["ls", "tree", "cat", "mybin", "gromacs"]
+

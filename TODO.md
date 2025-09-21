@@ -5,5 +5,8 @@
 - [X] Support TOML parsing
 - [X] dtor for .maestro_running
 - [X] CLI
-- [] Make Container/Executor part of process definition
-- [] Aliased executors
+- [X] Aliased executors
+- [] Make executor part of process definition -> dependencies.txt
+- [] Inheritance
+- [] Python bindings
+- [] ssh

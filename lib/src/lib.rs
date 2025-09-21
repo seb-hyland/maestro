@@ -1,4 +1,4 @@
-use crate::{executors::generic::GenericExecutor, session::setup_session_workdir};
+use crate::{executors::GenericExecutor, session::setup_session_workdir};
 use ctor::ctor;
 pub use inventory::submit as submit_request;
 use serde::Deserialize;

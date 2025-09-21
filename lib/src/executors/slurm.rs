@@ -20,6 +20,7 @@ use crate::{
 pub struct SlurmExecutor {
     #[serde(default = "default_poll_rate")]
     poll_rate: Duration,
+    #[serde(default)]
     staging_mode: StagingMode,
     #[serde(default)]
     modules: Vec<String>,

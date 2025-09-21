@@ -28,6 +28,7 @@ pub(crate) fn prep_cache() -> Result<PathBuf, StringErr> {
     let vendor_dir = cache_dir.join("vendor");
     let mut maestro_dir = None;
     let mut maestro_macro_dir = None;
+    let mut session_gen_dir = None;
     for dependency in fs::read_dir(&vendor_dir)
         .map_err(|e| mapper(&e, "Failed to read vendor directory"))?
         .flatten()
@@ -37,22 +38,26 @@ pub(crate) fn prep_cache() -> Result<PathBuf, StringErr> {
         {
             let file_name_ref = dependency.file_name();
             let file_name = file_name_ref.to_string_lossy();
-            if file_name.contains("maestro-macros") {
+            if file_name.contains("maestro_macros") {
                 maestro_macro_dir = Some(dependency.path());
             } else if file_name.contains("maestro") {
                 maestro_dir = Some(dependency.path());
+            } else if file_name.contains("session_gen") {
+                session_gen_dir = Some(dependency.path())
             }
         }
     }
-    if maestro_dir.is_none() || maestro_macro_dir.is_none() {
+    if maestro_dir.is_none() || maestro_macro_dir.is_none() || session_gen_dir.is_none() {
         return Err(static_err(
-            "Failed to find maestro in vendored dependencies",
+            "Failed to find libmaestro and its dependencies in vendored",
         ));
     }
 
     let maestro_dir = maestro_dir.unwrap();
     let maestro_macro_dir = maestro_macro_dir.unwrap();
     let maestro_macro_dirname = maestro_macro_dir.file_name().unwrap();
+    let session_gen_dir = session_gen_dir.unwrap();
+    let session_gen_dirname = session_gen_dir.file_name().unwrap();
 
     let maestro_dirname = maestro_dir.file_name().unwrap().to_string_lossy();
     let maestro_version = maestro_dirname.strip_prefix("maestro-").unwrap();
@@ -69,8 +74,10 @@ pub(crate) fn prep_cache() -> Result<PathBuf, StringErr> {
     let maestro_toml_updated = maestro_toml_str
         .lines()
         .map(|l| {
-            if l.contains("path = \"../proc\"") {
-                format!("path = \"../{}\"", maestro_macro_dirname.display())
+            if l.contains(r#"path = "../proc""#) {
+                format!(r#"path = "../{}""#, maestro_macro_dirname.display())
+            } else if l.contains(r#"path = "../session""#) {
+                format!(r#"path = "../{}""#, session_gen_dirname.display())
             } else {
                 l.to_string()
             }

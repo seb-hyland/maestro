@@ -5,7 +5,7 @@ use crate::{
 };
 use std::{ffi::OsStr, fs, io, os::unix::ffi::OsStrExt, path::Path};
 
-pub(crate) fn build_and_bundle(additional_args: Vec<String>) -> StringResult {
+pub(crate) fn bundle_project(cargo_args: Vec<String>) -> StringResult {
     let crate_root = find_crate_root()?;
     let bundle_dir = crate_root.join("maestro_bundle");
     if bundle_dir.exists() {
@@ -15,7 +15,7 @@ pub(crate) fn build_and_bundle(additional_args: Vec<String>) -> StringResult {
     fs::create_dir_all(&bundle_dir)
         .map_err(|e| mapper(&e, "Failed to create maestro_bundle directory"))?;
 
-    build_project(additional_args, BuildType::Build)?;
+    build_project(cargo_args, Vec::new(), BuildType::Build)?;
 
     let target_dir = crate_root.join("target/release");
     for file in fs::read_dir(&target_dir)

@@ -1,6 +1,6 @@
 use crate::{
     build::{BuildType, build_project},
-    bundle::build_and_bundle,
+    bundle::bundle_project,
     cache::prep_cache,
     init::initialize,
     kill::kill_process,
@@ -33,10 +33,15 @@ fn main() {
     let command = Cmd::parse();
     if let Err(e) = match command {
         Cmd::Init { path } => initialize(path),
-        Cmd::Bundle { args } => build_and_bundle(args),
+        Cmd::Bundle { cargo_args } => bundle_project(cargo_args),
         Cmd::UpgradeCache => prep_cache().map(|_| {}),
-        Cmd::Build { args } => build_project(args, BuildType::Build),
-        Cmd::Run { background, args } => build_project(args, BuildType::Run(background)),
+        Cmd::Build { cargo_args } => build_project(cargo_args, Vec::new(), BuildType::Build),
+        Cmd::Run {
+            binary,
+            background,
+            cargo_args,
+            args,
+        } => build_project(cargo_args, args, BuildType::Run { background, binary }),
         Cmd::Kill { target } => kill_process(&target),
     } {
         eprintln!("{e}");
@@ -52,16 +57,20 @@ enum Cmd {
     },
     Bundle {
         #[arg(trailing_var_arg = true)]
-        args: Vec<String>,
+        cargo_args: Vec<String>,
     },
     UpgradeCache,
     Build {
         #[arg(trailing_var_arg = true)]
-        args: Vec<String>,
+        cargo_args: Vec<String>,
     },
     Run {
+        binary: Option<PathBuf>,
+
         #[arg(short, long, default_value_t = false)]
         background: bool,
+
+        cargo_args: Vec<String>,
 
         #[arg(trailing_var_arg = true)]
         args: Vec<String>,
@@ -121,17 +130,16 @@ fn report_process_failure(status: ExitStatus, process: &'static str) -> StringEr
     })
 }
 
-fn dedent<S: ToString>(s: S) -> Vec<u8> {
+fn dedent<S: ToString>(s: S) -> String {
     let str = s.to_string();
     str.trim()
         .lines()
-        .map(|line| line.trim_start().as_bytes().to_owned())
-        .reduce(|mut acc, l| {
-            acc.push(b'\n');
-            acc.extend_from_slice(&l);
+        .map(|line| line.trim_start())
+        .fold(String::new(), |mut acc, l| {
+            acc.push('\n');
+            acc.push_str(l);
             acc
         })
-        .unwrap()
 }
 
 fn rustc_version() -> Result<String, StringErr> {

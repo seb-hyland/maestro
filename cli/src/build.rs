@@ -22,8 +22,6 @@ pub(crate) fn build_project(
     program_args: Vec<String>,
     ty: BuildType,
 ) -> StringResult {
-    let cache_dir = prep_cache()?;
-
     fn setup_cargo_env(
         cmd: &mut Command,
         run: bool,
@@ -83,6 +81,8 @@ pub(crate) fn build_project(
 
     match ty {
         BuildType::Build => {
+            let cache_dir = prep_cache()?;
+
             let mut build_cmd = Command::new("cargo");
             setup_cargo_env(&mut build_cmd, false, &cache_dir, cargo_args, program_args);
             let status = build_cmd
@@ -94,6 +94,8 @@ pub(crate) fn build_project(
         }
         BuildType::Run { background, binary } => match binary {
             None => {
+                let cache_dir = prep_cache()?;
+
                 let mut run_cmd = Command::new("cargo");
                 setup_cargo_env(&mut run_cmd, true, &cache_dir, cargo_args, program_args);
                 if !background {

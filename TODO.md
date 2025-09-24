@@ -8,6 +8,10 @@
 - [X] Aliased executors
 - [X] Make executor part of process definition -> dependencies.txt
 - [X] Doc comments?
+- [] Simplify -> default executor always just "default"
+- [] Literal OR ident as executor -> ident: var, literal: toml
+- [] Attribute macro for main
+- [] Libc-print
 - [] Cache in home dir?
 - [] Inheritance
 - [] Python bindings

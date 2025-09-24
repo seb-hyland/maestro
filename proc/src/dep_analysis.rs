@@ -22,10 +22,10 @@ pub(crate) struct ProcessDependencies {
     pub(crate) deps: Vec<String>,
 }
 #[derive(Serialize)]
-#[serde(tag = "engine")]
+#[serde(tag = "container_engine")]
 pub(crate) enum ContainerDependency {
-    Docker { image: String },
-    Apptainer { image: String },
+    Docker { container_image: String },
+    Apptainer { container_image: String },
 }
 
 pub(crate) fn analyze_depends(

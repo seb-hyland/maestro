@@ -42,9 +42,7 @@ pub enum Container {
 #[serde(deny_unknown_fields)]
 #[doc(hidden)]
 pub struct TomlConfig {
-    pub executor: GenericExecutor,
-    #[serde(default)]
-    pub custom_executor: HashMap<String, MaybeAliasedExecutor>,
+    pub executor: HashMap<String, MaybeAliasedExecutor>,
     pub args: HashMap<String, String>,
 }
 #[derive(Deserialize)]
@@ -55,8 +53,7 @@ pub enum MaybeAliasedExecutor {
 }
 
 pub struct MaestroConfig {
-    pub executor: GenericExecutor,
-    pub custom_executors: HashMap<String, GenericExecutor>,
+    pub executors: HashMap<String, GenericExecutor>,
     pub args: HashMap<String, String>,
 }
 
@@ -70,19 +67,15 @@ pub static MAESTRO_CONFIG: LazyLock<MaestroConfig> = LazyLock::new(|| {
         eprintln!("Failed to parse Maestro.toml: {e}");
         exit(1)
     });
-    config.custom_executor.insert(
-        "default".to_string(),
-        MaybeAliasedExecutor::Executor(config.executor.clone()),
-    );
 
     let canonicalized_executors = config
-        .custom_executor
+        .executor
         .iter()
         .map(|(name, exec)| {
             let executor = match exec {
                 MaybeAliasedExecutor::Executor(exec) => exec.clone(),
                 MaybeAliasedExecutor::Alias { alias } => {
-                    let canonical_path = config.custom_executor.get(alias).unwrap_or_else(|| {
+                    let canonical_path = config.executor.get(alias).unwrap_or_else(|| {
                         eprintln!(r#"Unable to resolve executor alias "{alias}""#);
                         exit(1)
                     });
@@ -102,8 +95,7 @@ pub static MAESTRO_CONFIG: LazyLock<MaestroConfig> = LazyLock::new(|| {
         .collect();
 
     MaestroConfig {
-        executor: config.executor,
-        custom_executors: canonicalized_executors,
+        executors: canonicalized_executors,
         args: config.args,
     }
 });
@@ -138,7 +130,7 @@ macro_rules! arg {
 fn initialize() {
     LazyLock::force(&MAESTRO_CONFIG);
     for RequestedExecutor(name, file, line, col) in inventory::iter::<RequestedExecutor> {
-        if !MAESTRO_CONFIG.custom_executors.contains_key(*name) {
+        if !MAESTRO_CONFIG.executors.contains_key(*name) {
             eprintln!(
                 "Custom executor \"{name}\" expected to be defined in Maestro.toml.\nLocation: {file}:{line}:{col}"
             );

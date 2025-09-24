@@ -1,9 +1,9 @@
 # This is a docstring that describes this process
 # Maybe I talk more about what it does
 # ...so the user knows how they should configure its resources
-["lib/examples/workflow.rs:27:18"]
+["lib/examples/workflow.rs:28:18"]
 executor = "default"
-engine = "Docker"
-image = "ubuntu:rolling"
+container_engine = "Docker"
+container_image = "ubuntu:rolling"
 deps = ["ls", "gromacs"]
 

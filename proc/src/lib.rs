@@ -28,7 +28,7 @@ mod dep_analysis;
 
 struct ProcessDefinition {
     name: Option<Expr>,
-    executor: Option<LitStr>,
+    executor: LitStr,
     container: Option<Container>,
     inputs: Punctuated<Ident, Comma>,
     args: Punctuated<Ident, Comma>,
@@ -60,7 +60,7 @@ mod kw {
 impl Parse for ProcessDefinition {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut name = None;
-        let mut executor = None;
+        let mut declared_executor = None;
         let mut container = None;
         let mut inputs = Punctuated::new();
         let mut args = Punctuated::new();
@@ -87,7 +87,7 @@ impl Parse for ProcessDefinition {
             } else if input.peek(kw::executor) {
                 let _: kw::executor = input.parse()?;
                 let _: Eq = input.parse()?;
-                executor = Some(input.parse()?);
+                declared_executor = Some(input.parse()?);
             } else if input.peek(kw::container) {
                 let _: kw::container = input.parse()?;
                 let _: Eq = input.parse()?;
@@ -139,6 +139,15 @@ impl Parse for ProcessDefinition {
                 return Err(syn::Error::new(
                     input.span(),
                     "Missing required `process` field!",
+                ));
+            }
+        };
+        let executor = match declared_executor {
+            Some(v) => v,
+            None => {
+                return Err(syn::Error::new(
+                    input.span(),
+                    "Missing required `executor` field!",
                 ));
             }
         };
@@ -216,7 +225,6 @@ pub fn process(input: TokenStream) -> TokenStream {
         }
         (docs, input_iter.collect())
     };
-    println!("Rest: {rest:#?}");
     let definition = parse_macro_input!(rest as ProcessDefinition);
 
     let literal = definition.literal;
@@ -347,17 +355,17 @@ pub fn process(input: TokenStream) -> TokenStream {
     let process_span = literal.span();
     let mut root = HashMap::new();
     let dependencies = ProcessDependencies {
-        executor: definition
-            .executor
-            .as_ref()
-            .map(|lit| lit.value())
-            .unwrap_or("default".to_string()),
+        executor: definition.executor.value(),
         container: definition
             .container
             .as_ref()
             .map(|container| match container {
-                Container::Docker(img) => ContainerDependency::Docker { image: img.value() },
-                Container::Apptainer(img) => ContainerDependency::Apptainer { image: img.value() },
+                Container::Docker(img) => ContainerDependency::Docker {
+                    container_image: img.value(),
+                },
+                Container::Apptainer(img) => ContainerDependency::Apptainer {
+                    container_image: img.value(),
+                },
             }),
         deps: dependencies.into_iter().collect(),
     };
@@ -419,14 +427,12 @@ pub fn process(input: TokenStream) -> TokenStream {
             }
         },
     };
-    let executor = match definition.executor {
-        None => quote! { maestro::MAESTRO_CONFIG.executor.exe(process) },
-        Some(executor) => quote! {
-            maestro::submit_request! {
-                maestro::RequestedExecutor(#executor, file!(), line!(), column!())
-            };
-            maestro::MAESTRO_CONFIG.custom_executors[#executor].exe(process)
-        },
+    let executor = definition.executor;
+    let executor_tokens = quote! {
+        maestro::submit_request! {
+            maestro::RequestedExecutor(#executor, file!(), line!(), column!())
+        };
+        maestro::MAESTRO_CONFIG.executors[#executor].exe(process)
     };
 
     quote! {{
@@ -438,7 +444,7 @@ pub fn process(input: TokenStream) -> TokenStream {
             vec![#(#output_pairs),*],
             ::std::borrow::Cow::Borrowed(#process_lit),
         );
-        #executor
+        #executor_tokens
     }}
     .into()
 }

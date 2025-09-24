@@ -1,7 +1,7 @@
-[executor]
+[executor.default]
 type = "Local"
 
-[custom_executor.slurm]
+[executor.slurm]
 type = "Slurm"
 staging_mode = "Copy"
 cpus = 8

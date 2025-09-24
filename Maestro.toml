@@ -18,11 +18,19 @@ additional_options = [
 
 [executor.other]
 inherit = "slurm_base"
-overrides = { type = "Slurm", tasks = 2, cpus = 10, mail_type = ["ALL"], staging_mode = "Symlink" }
+# type = "Slurm"
+tasks = 2
+cpus = 10
+mail_type = ["ALL"]
+staging_mode = "Symlink"
 
 [executor.other2]
 inherit = "other"
-overrides = { type = "Slurm", staging_mode = "Copy" }
+cpus = 13
+
+[executor.other3]
+inherit = "default"
+staging_mode = "Copy"
 
 [args]
 print_statement = "Hi!"

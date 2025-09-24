@@ -1,8 +1,9 @@
 use maestro::prelude::*;
 
+#[maestro::main]
 fn main() {
     test_workflow(0).unwrap();
-    println!("{}", arg!("print_statement"));
+    println!("{}", arg!("pint_statement"));
 }
 
 fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
@@ -15,7 +16,7 @@ fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
         /// Maybe I talk more about what it does
         /// ...so the user knows how they should configure its resources
         name = format!("test_{run}"),
-        executor = "other4",
+        executor = "other3",
         container = Docker("ubuntu:rolling"),
         inputs = [
             test_fasta,

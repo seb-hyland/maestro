@@ -17,35 +17,22 @@ use std::{
 
 #[derive(Deserialize)]
 #[serde(untagged)]
-#[serde(deny_unknown_fields)]
 pub enum MaybeInheritingExecutor {
     Inherit {
         inherit: String,
-        overrides: Option<PartialExecutor>,
+        #[serde(flatten)]
+        overrides: Box<Option<PartialExecutor>>,
     },
     Executor(GenericExecutor),
 }
 
 #[derive(Clone, Deserialize)]
-#[serde(tag = "type")]
-pub enum PartialExecutor {
-    Local(PartialLocalExecutor),
-    Slurm(Box<PartialSlurmExecutor>),
-}
-
-#[derive(Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PartialLocalExecutor {
+pub struct PartialExecutor {
+    // Either
     staging_mode: Option<StagingMode>,
-}
-
-#[derive(Clone, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PartialSlurmExecutor {
+    // Slurm
     poll_rate: Option<Duration>,
-    staging_mode: Option<StagingMode>,
-    #[serde(default)]
-    modules: Vec<String>,
+    modules: Option<Vec<String>>,
     #[serde(flatten)]
     config: SlurmConfig,
 }
@@ -69,47 +56,60 @@ impl GenericExecutor {
 
 impl LocalExecutor {
     pub(crate) fn merge(self, other: PartialExecutor) -> Option<LocalExecutor> {
-        match other {
-            PartialExecutor::Slurm(_) => None,
-            PartialExecutor::Local(other) => Some(LocalExecutor {
+        if other.poll_rate.is_some() || other.modules.is_some() {
+            return None;
+        }
+        let slurm_config = other.config;
+        if slurm_config.cpus.is_some()
+            || slurm_config.memory.is_some()
+            || slurm_config.gpus.is_some()
+            || slurm_config.tasks.is_some()
+            || slurm_config.nodes.is_some()
+            || slurm_config.partition.is_some()
+            || slurm_config.time.is_some()
+            || slurm_config.account.is_some()
+            || slurm_config.mail_user.is_some()
+            || slurm_config.mail_type.is_some()
+            || !slurm_config.additional_options.is_empty()
+        {
+            None
+        } else {
+            Some(LocalExecutor {
                 staging_mode: other.staging_mode.unwrap_or(self.staging_mode),
-            }),
+            })
         }
     }
 }
 impl SlurmExecutor {
     pub(crate) fn merge(mut self, other: PartialExecutor) -> Option<SlurmExecutor> {
-        match other {
-            PartialExecutor::Local(_) => None,
-            PartialExecutor::Slurm(other) => Some(SlurmExecutor {
-                poll_rate: other.poll_rate.unwrap_or(self.poll_rate),
-                staging_mode: other.staging_mode.unwrap_or(self.staging_mode),
-                modules: {
-                    let mut other_modules = other.modules;
-                    other_modules.append(&mut self.modules);
-                    other_modules
-                },
-                config: {
-                    SlurmConfig {
-                        cpus: other.config.cpus.or(self.config.cpus),
-                        memory: other.config.memory.or(self.config.memory),
-                        gpus: other.config.gpus.or(self.config.gpus),
-                        tasks: other.config.tasks.or(self.config.tasks),
-                        nodes: other.config.nodes.or(self.config.nodes),
-                        partition: other.config.partition.or(self.config.partition),
-                        time: other.config.time.or(self.config.time),
-                        account: other.config.account.or(self.config.account),
-                        mail_user: other.config.mail_user.or(self.config.mail_user),
-                        mail_type: other.config.mail_type.or(self.config.mail_type),
-                        additional_options: {
-                            let mut other_options = other.config.additional_options;
-                            other_options.append(&mut self.config.additional_options);
-                            other_options
-                        },
-                    }
-                },
-            }),
-        }
+        Some(SlurmExecutor {
+            poll_rate: other.poll_rate.unwrap_or(self.poll_rate),
+            staging_mode: other.staging_mode.unwrap_or(self.staging_mode),
+            modules: {
+                let mut other_modules = other.modules.unwrap_or_default();
+                other_modules.append(&mut self.modules);
+                other_modules
+            },
+            config: {
+                SlurmConfig {
+                    cpus: other.config.cpus.or(self.config.cpus),
+                    memory: other.config.memory.or(self.config.memory),
+                    gpus: other.config.gpus.or(self.config.gpus),
+                    tasks: other.config.tasks.or(self.config.tasks),
+                    nodes: other.config.nodes.or(self.config.nodes),
+                    partition: other.config.partition.or(self.config.partition),
+                    time: other.config.time.or(self.config.time),
+                    account: other.config.account.or(self.config.account),
+                    mail_user: other.config.mail_user.or(self.config.mail_user),
+                    mail_type: other.config.mail_type.or(self.config.mail_type),
+                    additional_options: {
+                        let mut other_options = other.config.additional_options;
+                        other_options.append(&mut self.config.additional_options);
+                        other_options
+                    },
+                }
+            },
+        })
     }
 }
 

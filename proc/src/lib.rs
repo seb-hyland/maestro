@@ -2,20 +2,23 @@ use crate::dep_analysis::{
     ContainerDependency, DEPENDENCIES_FILE, ProcessDependencies, SHELL_EXCLUDES, analyze_depends,
 };
 use fxhash::FxHashSet;
-use proc_macro::{Delimiter, Span, TokenStream, TokenTree, token_stream};
+use proc_macro::{
+    Delimiter, Group, Ident, Literal, Punct, Spacing, Span, TokenStream, TokenTree, token_stream,
+};
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use rand::{Rng as _, distr::Uniform};
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     fs,
     io::Write as _,
     iter::Peekable,
+    mem,
     path::Path,
     sync::{LazyLock, Mutex},
 };
 use syn::{
-    Expr, Ident, LitBool, LitStr, bracketed, parenthesized,
+    Expr, Ident as SynIdent, LitBool, LitStr, bracketed, parenthesized,
     parse::{self, Parse},
     parse_macro_input,
     punctuated::Punctuated,
@@ -30,9 +33,9 @@ struct ProcessDefinition {
     name: Option<Expr>,
     executor: LitStr,
     container: Option<Container>,
-    inputs: Punctuated<Ident, Comma>,
-    args: Punctuated<Ident, Comma>,
-    outputs: Punctuated<Ident, Comma>,
+    inputs: Punctuated<SynIdent, Comma>,
+    args: Punctuated<SynIdent, Comma>,
+    outputs: Punctuated<SynIdent, Comma>,
     dependencies: Punctuated<LitStr, Comma>,
     inline: bool,
     literal: LitStr,
@@ -107,11 +110,11 @@ impl Parse for ProcessDefinition {
                     Container::Apptainer(image)
                 });
             } else if input.peek(kw::inputs) {
-                parse_list!(inputs, Ident::parse)
+                parse_list!(inputs, SynIdent::parse)
             } else if input.peek(kw::args) {
-                parse_list!(args, Ident::parse)
+                parse_list!(args, SynIdent::parse)
             } else if input.peek(kw::outputs) {
-                parse_list!(outputs, Ident::parse)
+                parse_list!(outputs, SynIdent::parse)
             } else if input.peek(kw::dependencies) {
                 parse_list!(dependencies, <LitStr as parse::Parse>::parse)
             } else if input.peek(kw::inline) {
@@ -268,7 +271,7 @@ pub fn process(input: TokenStream) -> TokenStream {
         // Make a copy and append environment variables to stop shellcheck yapping abt undefined vars
         let mut presented_contents = process.clone();
         let mut injection_count = 0;
-        let mut inject = |arg: &Ident| {
+        let mut inject = |arg: &SynIdent| {
             injection_count += 1;
             presented_contents.push_str(&format!("\n{arg}=\"\""));
         };
@@ -298,7 +301,7 @@ pub fn process(input: TokenStream) -> TokenStream {
     }
 
     let process_lit = LitStr::new(&process, literal.span());
-    fn into_pairs(args: Punctuated<Ident, Comma>) -> impl IntoIterator<Item = TokenStream2> {
+    fn into_pairs(args: Punctuated<SynIdent, Comma>) -> impl IntoIterator<Item = TokenStream2> {
         args.into_iter().map(|ident| {
             let lit = LitStr::new(&ident.to_string(), ident.span());
             quote! { (::std::borrow::Cow::Borrowed(#lit), PathBuf::from(#ident))}
@@ -451,3 +454,89 @@ pub fn process(input: TokenStream) -> TokenStream {
 
 static GENERATED_HASHES: LazyLock<Mutex<FxHashSet<String>>> =
     LazyLock::new(|| Mutex::new(FxHashSet::default()));
+
+#[proc_macro_attribute]
+pub fn main(attrs: TokenStream, body: TokenStream) -> TokenStream {
+    if !attrs.is_empty() {
+        return construct_error_stream(
+            "#[maestro::main] does not accept attributes!",
+            attrs.into_iter().next().unwrap().span(),
+        );
+    }
+    let mut token_iter = body.clone().into_iter().enumerate();
+    if !token_iter.any(|(_, token)| {
+        if let TokenTree::Ident(ident) = token {
+            ident.to_string() == "fn"
+        } else {
+            false
+        }
+    }) {
+        return construct_error_stream(
+            "#[maestro::main] can only be used on functions",
+            Span::call_site(),
+        );
+    }
+
+    let function_body = token_iter.find_map(|(i, token)| {
+        if let TokenTree::Group(group) = token
+            && group.delimiter() == Delimiter::Brace
+        {
+            Some((i, group.stream()))
+        } else {
+            None
+        }
+    });
+    let (function_body_idx, mut function_body_vec): (usize, VecDeque<_>) = match function_body {
+        Some((idx, body)) => (idx, body.into_iter().collect()),
+        None => return construct_error_stream("Expected function body", Span::call_site()),
+    };
+
+    let start_tokens = [
+        TokenTree::Ident(Ident::new("maestro", Span::call_site())),
+        TokenTree::Punct(Punct::new(':', Spacing::Joint)),
+        TokenTree::Punct(Punct::new(':', Spacing::Alone)),
+        TokenTree::Ident(Ident::new("initialize", Span::call_site())),
+        TokenTree::Group(Group::new(Delimiter::Parenthesis, TokenStream::new())),
+        TokenTree::Punct(Punct::new(';', Spacing::Joint)),
+    ];
+    for token in start_tokens.into_iter().rev() {
+        function_body_vec.push_front(token);
+    }
+
+    let end_tokens = [
+        TokenTree::Ident(Ident::new("maestro", Span::call_site())),
+        TokenTree::Punct(Punct::new(':', Spacing::Joint)),
+        TokenTree::Punct(Punct::new(':', Spacing::Alone)),
+        TokenTree::Ident(Ident::new("deinitialize", Span::call_site())),
+        TokenTree::Group(Group::new(Delimiter::Parenthesis, TokenStream::new())),
+        TokenTree::Punct(Punct::new(';', Spacing::Joint)),
+    ];
+    for token in end_tokens.into_iter() {
+        function_body_vec.push_back(token);
+    }
+
+    let mut final_stream: Vec<TokenTree> = body.into_iter().collect();
+    final_stream[function_body_idx] = TokenTree::Group(Group::new(
+        Delimiter::Brace,
+        function_body_vec.into_iter().collect(),
+    ));
+    final_stream.into_iter().collect()
+}
+
+fn construct_error_stream(msg: &str, span: Span) -> TokenStream {
+    [
+        TokenTree::Ident(proc_macro::Ident::new("compile_error", span)),
+        TokenTree::Punct(Punct::new('!', Spacing::Alone)),
+        {
+            let mut group = TokenTree::Group(Group::new(Delimiter::Parenthesis, {
+                [TokenTree::Literal(Literal::string(msg))]
+                    .into_iter()
+                    .collect()
+            }));
+            group.set_span(span);
+            group
+        },
+    ]
+    .into_iter()
+    .collect()
+}

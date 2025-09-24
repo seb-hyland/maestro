@@ -1,5 +1,4 @@
 use crate::LP;
-use ctor::dtor;
 use session_gen::generate_session_id;
 use std::{
     env,
@@ -48,10 +47,4 @@ pub(crate) fn setup_session_workdir() -> Result<PathBuf, io::Error> {
         session_workdir.display()
     );
     Ok(session_workdir)
-}
-#[dtor]
-fn set_inactive() {
-    if let Some(dir) = SESSION_WORKDIR.get() {
-        let _ = fs::remove_file(dir.join(".maestro.active"));
-    }
 }

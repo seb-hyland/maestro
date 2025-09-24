@@ -1,7 +1,10 @@
-use crate::{config::MAESTRO_CONFIG, session::setup_session_workdir};
-use ctor::ctor;
+use crate::{
+    config::MAESTRO_CONFIG,
+    session::{SESSION_WORKDIR, setup_session_workdir},
+};
 pub use inventory::submit as submit_request;
-use std::{borrow::Cow, path::PathBuf, process::exit, sync::LazyLock};
+pub use maestro_macros::main;
+use std::{borrow::Cow, fs, path::PathBuf, process::exit, sync::LazyLock};
 
 pub mod config;
 pub mod executors;
@@ -56,8 +59,7 @@ macro_rules! arg {
     }};
 }
 
-#[ctor]
-fn initialize() {
+pub fn initialize() {
     LazyLock::force(&MAESTRO_CONFIG);
     for RequestedExecutor(name, file, line, col) in inventory::iter::<RequestedExecutor> {
         if !MAESTRO_CONFIG.executors.contains_key(*name) {
@@ -83,4 +85,10 @@ fn initialize() {
         }
     };
     let _ = session::SESSION_WORKDIR.set(workdir);
+}
+
+pub fn deinitialize() {
+    if let Some(dir) = SESSION_WORKDIR.get() {
+        let _ = fs::remove_file(dir.join(".maestro.active"));
+    }
 }

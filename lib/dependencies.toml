@@ -2,7 +2,7 @@
 # Maybe I talk more about what it does
 # ...so the user knows how they should configure its resources
 ["lib/examples/workflow.rs:28:18"]
-executor = "default"
+executor = "other4"
 container_engine = "Docker"
 container_image = "ubuntu:rolling"
 deps = ["ls", "gromacs"]

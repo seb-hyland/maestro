@@ -1,3 +1,9 @@
+use crate::{
+    LP, Process,
+    executors::Executor,
+    process::{CheckTime, StagingMode},
+};
+use serde::Deserialize;
 use std::{
     fmt::Display,
     io::{self, Write as _},
@@ -7,25 +13,17 @@ use std::{
     time::Duration,
 };
 
-use serde::Deserialize;
-
-use crate::{
-    LP, Process,
-    executors::Executor,
-    process::{CheckTime, StagingMode},
-};
-
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SlurmExecutor {
     #[serde(default = "default_poll_rate")]
-    poll_rate: Duration,
+    pub(crate) poll_rate: Duration,
     #[serde(default)]
-    staging_mode: StagingMode,
+    pub(crate) staging_mode: StagingMode,
     #[serde(default)]
-    modules: Vec<String>,
+    pub(crate) modules: Vec<String>,
     #[serde(flatten)]
-    config: SlurmConfig,
+    pub(crate) config: SlurmConfig,
 }
 const fn default_poll_rate() -> Duration {
     Duration::from_secs(5)
@@ -75,18 +73,18 @@ impl SlurmExecutor {
 
 #[derive(Default, Clone, Deserialize)]
 pub struct SlurmConfig {
-    cpus: Option<u64>,
-    memory: Option<MemoryConfig>,
-    gpus: Option<u64>,
-    tasks: Option<u64>,
-    nodes: Option<u64>,
-    partition: Option<String>,
-    time: Option<SlurmTime>,
-    account: Option<String>,
-    mail_user: Option<String>,
-    mail_type: Option<MailTypeList>,
+    pub(crate) cpus: Option<u64>,
+    pub(crate) memory: Option<MemoryConfig>,
+    pub(crate) gpus: Option<u64>,
+    pub(crate) tasks: Option<u64>,
+    pub(crate) nodes: Option<u64>,
+    pub(crate) partition: Option<String>,
+    pub(crate) time: Option<SlurmTime>,
+    pub(crate) account: Option<String>,
+    pub(crate) mail_user: Option<String>,
+    pub(crate) mail_type: Option<MailTypeList>,
     #[serde(default)]
-    additional_options: Vec<(String, String)>,
+    pub(crate) additional_options: Vec<(String, String)>,
 }
 
 #[derive(Clone, Copy, Default, Deserialize)]
@@ -178,7 +176,7 @@ impl Display for MailType {
     }
 }
 #[derive(Clone, Deserialize)]
-struct MailTypeList(Vec<MailType>);
+pub(crate) struct MailTypeList(Vec<MailType>);
 impl Display for MailTypeList {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut iter = self.0.iter();

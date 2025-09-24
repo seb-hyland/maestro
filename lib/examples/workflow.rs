@@ -15,7 +15,7 @@ fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
         /// Maybe I talk more about what it does
         /// ...so the user knows how they should configure its resources
         name = format!("test_{run}"),
-        executor = "default",
+        executor = "other4",
         container = Docker("ubuntu:rolling"),
         inputs = [
             test_fasta,

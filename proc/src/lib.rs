@@ -432,7 +432,7 @@ pub fn process(input: TokenStream) -> TokenStream {
         maestro::submit_request! {
             maestro::RequestedExecutor(#executor, file!(), line!(), column!())
         };
-        maestro::MAESTRO_CONFIG.executors[#executor].exe(process)
+        maestro::config::MAESTRO_CONFIG.executors[#executor].exe(process)
     };
 
     quote! {{

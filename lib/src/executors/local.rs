@@ -15,7 +15,7 @@ use std::{
 #[serde(deny_unknown_fields)]
 pub struct LocalExecutor {
     #[serde(default)]
-    staging_mode: StagingMode,
+    pub(crate) staging_mode: StagingMode,
 }
 
 impl LocalExecutor {

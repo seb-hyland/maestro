@@ -1,7 +1,7 @@
 [executor.default]
 type = "Local"
 
-[executor.slurm]
+[executor.slurm_base]
 type = "Slurm"
 staging_mode = "Copy"
 cpus = 8
@@ -15,6 +15,14 @@ mail_type = ["NONE", "TIME_LIMIT_50"]
 additional_options = [
     ["qos", "high"]
 ]
+
+[executor.other]
+inherit = "slurm_base"
+overrides = { type = "Slurm", tasks = 2, cpus = 10, mail_type = ["ALL"], staging_mode = "Symlink" }
+
+[executor.other2]
+inherit = "other"
+overrides = { type = "Slurm", staging_mode = "Copy" }
 
 [args]
 print_statement = "Hi!"

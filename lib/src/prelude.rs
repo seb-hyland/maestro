@@ -1,5 +1,8 @@
 pub use crate::{arg, execute};
-pub use dagger::dagger;
+pub use dagger::{
+    dagger,
+    parallelize::{parallelize, parallelize_with_time_limit},
+};
 pub use maestro_macros::process;
 pub use std::{
     io,

@@ -459,7 +459,7 @@ impl Executor for SlurmExecutor {
             .iter()
             .map(|(_, p)| workdir.join(p))
             .collect();
-        outputs.insert(0, workdir);
+        outputs.push(workdir);
         Ok(outputs)
     }
 }

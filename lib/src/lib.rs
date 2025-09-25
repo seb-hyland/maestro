@@ -4,7 +4,7 @@ use crate::{
 };
 pub use inventory::submit as submit_request;
 pub use maestro_macros::main;
-use std::{borrow::Cow, fs, path::PathBuf, process::exit, sync::LazyLock};
+use std::{array, borrow::Cow, fs, io, path::PathBuf, process::exit, sync::LazyLock};
 
 pub mod config;
 pub mod executors;
@@ -33,21 +33,21 @@ pub enum Container {
     Apptainer(Cow<'static, str>),
 }
 
+pub type WorkflowResult = Result<Vec<PathBuf>, io::Error>;
+
+pub trait IntoArray<T, const N: usize> {
+    fn into_array(self) -> [T; N];
+}
+impl<T: Clone, const N: usize> IntoArray<T, N> for Vec<T> {
+    fn into_array(self) -> [T; N] {
+        array::from_fn(|i| self[i].clone())
+    }
+}
+
 pub struct RequestedExecutor(pub &'static str, pub &'static str, pub u32, pub u32);
 inventory::collect!(RequestedExecutor);
 pub struct RequestedArg(pub &'static str, pub &'static str, pub u32, pub u32);
 inventory::collect!(RequestedArg);
-
-#[macro_export]
-macro_rules! execute {
-    ($process:expr) => {{ $crate::MAESTRO_CONFIG.executor.exe($process) }};
-    ($name:literal, $process:expr) => {{
-        $crate::submit_request! {
-            $crate::RequestedExecutor($name, file!(), line!(), column!())
-        };
-        $crate::config::MAESTRO_CONFIG.executors[$name].exe($process)
-    }};
-}
 
 #[macro_export]
 macro_rules! arg {
@@ -91,4 +91,15 @@ pub fn deinitialize() {
     if let Some(dir) = SESSION_WORKDIR.get() {
         let _ = fs::remove_file(dir.join(".maestro.active"));
     }
+}
+
+#[macro_export]
+macro_rules! execute {
+    ($process:expr) => {{ $crate::MAESTRO_CONFIG.executor.exe($process) }};
+    ($name:literal, $process:expr) => {{
+        $crate::submit_request! {
+            $crate::RequestedExecutor($name, file!(), line!(), column!())
+        };
+        $crate::config::MAESTRO_CONFIG.executors[$name].exe($process)
+    }};
 }

@@ -176,7 +176,7 @@ impl Parse for ProcessDefinition {
 /// }
 /// ```
 #[proc_macro]
-pub fn process(input: TokenStream) -> TokenStream {
+pub fn workflow(input: TokenStream) -> TokenStream {
     let mut input_iter = input.clone().into_iter().peekable();
     let (doc_strings, rest) = {
         fn parse_doc(iter: &mut Peekable<token_stream::IntoIter>) -> Result<String, ()> {

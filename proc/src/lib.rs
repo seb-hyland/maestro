@@ -462,8 +462,7 @@ pub fn main(attrs: TokenStream, body: TokenStream) -> TokenStream {
             attrs.into_iter().next().unwrap().span(),
         );
     }
-    let mut token_iter = body.clone().into_iter().enumerate();
-    if !token_iter.any(|(_, token)| {
+    if !body.clone().into_iter().any(|token| {
         if let TokenTree::Ident(ident) = token {
             ident.to_string() == "fn"
         } else {
@@ -476,48 +475,36 @@ pub fn main(attrs: TokenStream, body: TokenStream) -> TokenStream {
         );
     }
 
-    let function_body = token_iter.find_map(|(i, token)| {
+    let mut tokens: Vec<TokenTree> = body.into_iter().collect();
+    for token in &mut tokens {
         if let TokenTree::Group(group) = token
             && group.delimiter() == Delimiter::Brace
         {
-            Some((i, group.stream()))
-        } else {
-            None
+            let mut new_body = Vec::new();
+
+            new_body.extend([
+                TokenTree::Ident(Ident::new("maestro", Span::call_site())),
+                TokenTree::Punct(Punct::new(':', Spacing::Joint)),
+                TokenTree::Punct(Punct::new(':', Spacing::Alone)),
+                TokenTree::Ident(Ident::new("initialize", Span::call_site())),
+                TokenTree::Group(Group::new(Delimiter::Parenthesis, TokenStream::new())),
+                TokenTree::Punct(Punct::new(';', Spacing::Alone)),
+            ]);
+            new_body.extend(group.stream());
+            new_body.extend([
+                TokenTree::Ident(Ident::new("maestro", Span::call_site())),
+                TokenTree::Punct(Punct::new(':', Spacing::Joint)),
+                TokenTree::Punct(Punct::new(':', Spacing::Alone)),
+                TokenTree::Ident(Ident::new("deinitialize", Span::call_site())),
+                TokenTree::Group(Group::new(Delimiter::Parenthesis, TokenStream::new())),
+                TokenTree::Punct(Punct::new(';', Spacing::Alone)),
+            ]);
+
+            *token = TokenTree::Group(Group::new(Delimiter::Brace, new_body.into_iter().collect()));
         }
-    });
-    let (function_body_idx, function_body_iter) = match function_body {
-        Some((idx, body)) => (idx, body.into_iter()),
-        None => return construct_error_stream("Expected function body", Span::call_site()),
-    };
+    }
 
-    let start_tokens = [
-        TokenTree::Ident(Ident::new("maestro", Span::call_site())),
-        TokenTree::Punct(Punct::new(':', Spacing::Joint)),
-        TokenTree::Punct(Punct::new(':', Spacing::Alone)),
-        TokenTree::Ident(Ident::new("initialize", Span::call_site())),
-        TokenTree::Group(Group::new(Delimiter::Parenthesis, TokenStream::new())),
-        TokenTree::Punct(Punct::new(';', Spacing::Alone)),
-    ];
-
-    let end_tokens = [
-        TokenTree::Ident(Ident::new("maestro", Span::call_site())),
-        TokenTree::Punct(Punct::new(':', Spacing::Joint)),
-        TokenTree::Punct(Punct::new(':', Spacing::Alone)),
-        TokenTree::Ident(Ident::new("deinitialize", Span::call_site())),
-        TokenTree::Group(Group::new(Delimiter::Parenthesis, TokenStream::new())),
-        TokenTree::Punct(Punct::new(';', Spacing::Alone)),
-    ];
-
-    let mut final_stream: Vec<TokenTree> = body.into_iter().collect();
-    final_stream[function_body_idx] = TokenTree::Group(Group::new(
-        Delimiter::Brace,
-        start_tokens
-            .into_iter()
-            .chain(function_body_iter)
-            .chain(end_tokens)
-            .collect(),
-    ));
-    final_stream.into_iter().collect()
+    tokens.into_iter().collect()
 }
 
 fn construct_error_stream(msg: &str, span: Span) -> TokenStream {

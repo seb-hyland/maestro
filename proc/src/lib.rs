@@ -9,11 +9,10 @@ use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
 use rand::{Rng as _, distr::Uniform};
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::HashMap,
     fs,
     io::Write as _,
     iter::Peekable,
-    mem,
     path::Path,
     sync::{LazyLock, Mutex},
 };

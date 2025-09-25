@@ -497,7 +497,7 @@ pub fn main(attrs: TokenStream, body: TokenStream) -> TokenStream {
         TokenTree::Punct(Punct::new(':', Spacing::Alone)),
         TokenTree::Ident(Ident::new("initialize", Span::call_site())),
         TokenTree::Group(Group::new(Delimiter::Parenthesis, TokenStream::new())),
-        TokenTree::Punct(Punct::new(';', Spacing::Joint)),
+        TokenTree::Punct(Punct::new(';', Spacing::Alone)),
     ];
 
     let end_tokens = [
@@ -506,7 +506,7 @@ pub fn main(attrs: TokenStream, body: TokenStream) -> TokenStream {
         TokenTree::Punct(Punct::new(':', Spacing::Alone)),
         TokenTree::Ident(Ident::new("deinitialize", Span::call_site())),
         TokenTree::Group(Group::new(Delimiter::Parenthesis, TokenStream::new())),
-        TokenTree::Punct(Punct::new(';', Spacing::Joint)),
+        TokenTree::Punct(Punct::new(';', Spacing::Alone)),
     ];
 
     let mut final_stream: Vec<TokenTree> = body.into_iter().collect();

@@ -73,18 +73,18 @@ impl SlurmExecutor {
 
 #[derive(Default, Clone, Deserialize)]
 pub struct SlurmConfig {
-    pub(crate) cpus: Option<u64>,
-    pub(crate) memory: Option<MemoryConfig>,
-    pub(crate) gpus: Option<u64>,
-    pub(crate) tasks: Option<u64>,
-    pub(crate) nodes: Option<u64>,
-    pub(crate) partition: Option<String>,
-    pub(crate) time: Option<SlurmTime>,
-    pub(crate) account: Option<String>,
-    pub(crate) mail_user: Option<String>,
-    pub(crate) mail_type: Option<MailTypeList>,
+    pub cpus: Option<u64>,
+    pub memory: Option<MemoryConfig>,
+    pub gpus: Option<u64>,
+    pub tasks: Option<u64>,
+    pub nodes: Option<u64>,
+    pub partition: Option<String>,
+    pub time: Option<SlurmTime>,
+    pub account: Option<String>,
+    pub mail_user: Option<String>,
+    pub mail_type: Option<MailTypeList>,
     #[serde(default)]
-    pub(crate) additional_options: Vec<(String, String)>,
+    pub additional_options: Vec<(String, String)>,
 }
 
 #[derive(Clone, Copy, Default, Deserialize)]
@@ -176,7 +176,7 @@ impl Display for MailType {
     }
 }
 #[derive(Clone, Deserialize)]
-pub(crate) struct MailTypeList(Vec<MailType>);
+pub struct MailTypeList(Vec<MailType>);
 impl Display for MailTypeList {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut iter = self.0.iter();

@@ -32,7 +32,7 @@ impl Process {
     pub(crate) fn prep_script_workdir(
         &mut self,
     ) -> Result<(PathBuf, PathAndHandle, PathAndHandle), io::Error> {
-        // Initialized in CTOR
+        // Initialized in maestro::initialize
         let session_dir = SESSION_WORKDIR.get().unwrap().to_path_buf();
 
         let dir = session_dir.join(&self.name);

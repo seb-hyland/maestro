@@ -4,7 +4,7 @@ use crate::{
 };
 pub use inventory::submit as submit_request;
 pub use maestro_macros::main;
-use std::{array, borrow::Cow, fs, io, path::PathBuf, process::exit, sync::LazyLock};
+use std::{borrow::Cow, fs, io, path::PathBuf, process::exit, sync::LazyLock};
 
 pub mod config;
 pub mod executors;
@@ -38,9 +38,16 @@ pub type WorkflowResult = Result<Vec<PathBuf>, io::Error>;
 pub trait IntoArray<T, const N: usize> {
     fn into_array(self) -> [T; N];
 }
-impl<T: Clone, const N: usize> IntoArray<T, N> for Vec<T> {
-    fn into_array(self) -> [T; N] {
-        array::from_fn(|i| self[i].clone())
+impl<T, const N: usize> IntoArray<T, N> for Vec<T> {
+    fn into_array(mut self) -> [T; N] {
+        let len = self.len();
+        assert!(
+            len >= N,
+            "Vector does not have enough elements to coerce into array of length {N}"
+        );
+        self.truncate(N);
+        self.try_into()
+            .unwrap_or_else(|_| unreachable!("Vector will be exactly N elements"))
     }
 }
 

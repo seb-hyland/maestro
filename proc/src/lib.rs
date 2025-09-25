@@ -490,7 +490,13 @@ pub fn main(attrs: TokenStream, body: TokenStream) -> TokenStream {
                 TokenTree::Group(Group::new(Delimiter::Parenthesis, TokenStream::new())),
                 TokenTree::Punct(Punct::new(';', Spacing::Alone)),
             ]);
-            new_body.extend(group.stream());
+            new_body.extend([
+                TokenTree::Ident(Ident::new("let", Span::call_site())),
+                TokenTree::Ident(Ident::new("main_result", Span::call_site())),
+                TokenTree::Punct(Punct::new('=', Spacing::Alone)),
+                TokenTree::Group(Group::new(Delimiter::Brace, group.stream())),
+                TokenTree::Punct(Punct::new(';', Spacing::Alone)),
+            ]);
             new_body.extend([
                 TokenTree::Ident(Ident::new("maestro", Span::call_site())),
                 TokenTree::Punct(Punct::new(':', Spacing::Joint)),
@@ -499,8 +505,13 @@ pub fn main(attrs: TokenStream, body: TokenStream) -> TokenStream {
                 TokenTree::Group(Group::new(Delimiter::Parenthesis, TokenStream::new())),
                 TokenTree::Punct(Punct::new(';', Spacing::Alone)),
             ]);
+            new_body.extend([TokenTree::Ident(Ident::new(
+                "main_result",
+                Span::call_site(),
+            ))]);
 
             *token = TokenTree::Group(Group::new(Delimiter::Brace, new_body.into_iter().collect()));
+            break;
         }
     }
 

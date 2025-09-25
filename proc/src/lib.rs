@@ -486,8 +486,8 @@ pub fn main(attrs: TokenStream, body: TokenStream) -> TokenStream {
             None
         }
     });
-    let (function_body_idx, mut function_body_vec): (usize, VecDeque<_>) = match function_body {
-        Some((idx, body)) => (idx, body.into_iter().collect()),
+    let (function_body_idx, function_body_iter) = match function_body {
+        Some((idx, body)) => (idx, body.into_iter()),
         None => return construct_error_stream("Expected function body", Span::call_site()),
     };
 
@@ -499,9 +499,6 @@ pub fn main(attrs: TokenStream, body: TokenStream) -> TokenStream {
         TokenTree::Group(Group::new(Delimiter::Parenthesis, TokenStream::new())),
         TokenTree::Punct(Punct::new(';', Spacing::Joint)),
     ];
-    for token in start_tokens.into_iter().rev() {
-        function_body_vec.push_front(token);
-    }
 
     let end_tokens = [
         TokenTree::Ident(Ident::new("maestro", Span::call_site())),
@@ -511,14 +508,15 @@ pub fn main(attrs: TokenStream, body: TokenStream) -> TokenStream {
         TokenTree::Group(Group::new(Delimiter::Parenthesis, TokenStream::new())),
         TokenTree::Punct(Punct::new(';', Spacing::Joint)),
     ];
-    for token in end_tokens.into_iter() {
-        function_body_vec.push_back(token);
-    }
 
     let mut final_stream: Vec<TokenTree> = body.into_iter().collect();
     final_stream[function_body_idx] = TokenTree::Group(Group::new(
         Delimiter::Brace,
-        function_body_vec.into_iter().collect(),
+        start_tokens
+            .into_iter()
+            .chain(function_body_iter)
+            .chain(end_tokens)
+            .collect(),
     ));
     final_stream.into_iter().collect()
 }

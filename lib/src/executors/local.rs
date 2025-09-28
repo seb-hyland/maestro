@@ -10,12 +10,16 @@ use std::{io::Write as _, path::PathBuf, process::Command};
 #[derive(Clone, Deserialize, Default)]
 #[serde(deny_unknown_fields)]
 pub struct LocalExecutor {
+    pub(crate) container: Option<Container>,
     #[serde(default)]
     pub(crate) staging_mode: StagingMode,
-    pub(crate) container: Option<Container>,
 }
 
 impl LocalExecutor {
+    pub fn with_container(mut self, container: Container) -> Self {
+        self.container = Some(container);
+        self
+    }
     pub fn with_staging_mode(mut self, mode: StagingMode) -> Self {
         self.staging_mode = mode;
         self

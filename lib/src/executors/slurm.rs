@@ -37,6 +37,10 @@ impl Default for SlurmExecutor {
 }
 
 impl SlurmExecutor {
+    pub fn with_container(mut self, container: Container) -> Self {
+        self.container = Some(container);
+        self
+    }
     pub fn with_poll_rate(mut self, rate: Duration) -> Self {
         self.poll_rate = rate;
         self
@@ -172,7 +176,7 @@ impl Display for MailType {
     }
 }
 #[derive(Clone, Deserialize)]
-pub struct MailTypeList(Vec<MailType>);
+pub struct MailTypeList(pub Vec<MailType>);
 impl Display for MailTypeList {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut iter = self.0.iter();

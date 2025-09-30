@@ -56,7 +56,7 @@ mod kw {
     custom_keyword!(Apptainer);
     custom_keyword!(dependencies);
     custom_keyword!(inline);
-    custom_keyword!(process);
+    custom_keyword!(script);
 }
 
 impl Parse for ProcessDefinition {
@@ -120,8 +120,8 @@ impl Parse for ProcessDefinition {
                 let _: kw::inline = input.parse()?;
                 let _: Eq = input.parse()?;
                 inline = input.parse::<LitBool>()?.value();
-            } else if input.peek(kw::process) {
-                let _: kw::process = input.parse()?;
+            } else if input.peek(kw::script) {
+                let _: kw::script = input.parse()?;
                 let _: Eq = input.parse()?;
                 process = Some(input.parse()?);
             }
@@ -168,10 +168,10 @@ impl Parse for ProcessDefinition {
     }
 }
 
-/// A maestro workflow definition
+/// A maestro process definition
 /// ## Example
 /// ```rust
-/// workflow! {
+/// process! {
 ///     /// A docstring
 ///     name = format!("analyze_{molecule_name}"),
 ///     executor = "executor_name",
@@ -184,7 +184,7 @@ impl Parse for ProcessDefinition {
 /// }
 /// ```
 #[proc_macro]
-pub fn workflow(input: TokenStream) -> TokenStream {
+pub fn process(input: TokenStream) -> TokenStream {
     let mut input_iter = input.clone().into_iter().peekable();
     let (doc_strings, rest) = {
         fn parse_doc(iter: &mut Peekable<token_stream::IntoIter>) -> Result<String, ()> {

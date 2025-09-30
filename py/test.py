@@ -1,4 +1,4 @@
-from maestro import LocalExecutor, Process, SlurmExecutor, StagingMode
+from maestro import *
 
 inputs = {
     "test_fasta": "../lib/examples/data/seq1.fasta",
@@ -22,8 +22,10 @@ p = Process(
     args = {}
 )
 
-executor = LocalExecutor()
+executor = SlurmExecutor()
+executor.
 executor.with_staging_mode(StagingMode.Copy)
 *outputs, output_dir = executor.exe(p)
+
 
 print(outputs)

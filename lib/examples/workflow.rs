@@ -13,7 +13,7 @@ fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
     let test_dir = Path::new("lib/examples/data/");
     let output_path = Path::new("out.txt");
 
-    workflow! {
+    process! {
         /// This is a docstring that describes this process
         /// Maybe I talk more about what it does
         /// ...so the user knows how they should configure its resources
@@ -28,8 +28,9 @@ fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
         outputs = [
             output_path
         ],
-        process = r#"
-            mycmd
+        script = r#"
+            ls -R "$test_di"
+                > "$output_path"
         "#
     }
 }

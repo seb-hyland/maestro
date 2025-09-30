@@ -168,11 +168,19 @@ impl Parse for ProcessDefinition {
     }
 }
 
-///
+/// A maestro workflow definition
 /// ## Example
 /// ```rust
-/// process! {
-///     ...something
+/// workflow! {
+///     /// A docstring
+///     name = format!("analyze_{molecule_name}"),
+///     executor = "executor_name",
+///     inputs = [input],
+///     outputs = [output1, output2],
+///     dependencies = ["some_dep"],
+///     process = r#"
+///         echo "Hello, world!"
+///     "#
 /// }
 /// ```
 #[proc_macro]

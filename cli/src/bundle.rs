@@ -60,8 +60,8 @@ pub(crate) fn bundle_project(
     )
     .map_err(|e| mapper(&e, "Failed to copy Maestro.toml to bundle directory"))?;
     fs::copy(
-        crate_root.join("dependencies.toml"),
-        bundle_dir.join("dependencies.toml"),
+        crate_root.join("procinfo.toml"),
+        bundle_dir.join("procinfo.toml"),
     )
     .map_err(|e| mapper(&e, "Failed to copy dependencies.toml to bundle directory"))?;
 

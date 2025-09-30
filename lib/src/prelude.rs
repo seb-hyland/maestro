@@ -1,4 +1,4 @@
-pub use crate::{IntoArray, WorkflowResult, arg};
+pub use crate::{IntoArray, WorkflowResult, arg, inputs};
 pub use dagger::{
     dagger,
     parallelize::{parallelize, parallelize_with_time_limit},

@@ -1,9 +1,11 @@
-use maestro::prelude::*;
+use maestro::{inputs, prelude::*};
 
 #[maestro::main]
 fn main() {
     test_workflow(0).unwrap();
-    println!("{}", arg!("pint_statement"));
+    let _inputs = inputs!("alphafold_inputs");
+    let initialization_msg = arg!("init_msg");
+    println!("{}", initialization_msg);
 }
 
 fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
@@ -16,7 +18,7 @@ fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
         /// Maybe I talk more about what it does
         /// ...so the user knows how they should configure its resources
         name = format!("test_{run}"),
-        executor = "other3",
+        executor = "default",
         container = Docker("ubuntu:rolling"),
         inputs = [
             test_fasta,
@@ -27,9 +29,7 @@ fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
             output_path
         ],
         process = r#"
-        cat "$test_fasta"
-        cat "$test_dir"/seq2.fasta
-        ls -R "$test_dir" > "$output_path"
+            mycmd
         "#
     }
 }

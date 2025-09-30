@@ -9,7 +9,7 @@ use std::{
 
 pub(crate) static DEPENDENCIES_FILE: LazyLock<Mutex<File>> = LazyLock::new(|| {
     Mutex::new(
-        File::create(Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap()).join("dependencies.toml"))
+        File::create(Path::new(&env::var("CARGO_MANIFEST_DIR").unwrap()).join("procinfo.toml"))
             .expect("Failed to open dependencies file for writing!"),
     )
 });

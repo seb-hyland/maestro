@@ -115,15 +115,18 @@ impl SlurmExecutor {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
-#[doc(hidden)]
 pub struct TomlConfig {
     pub executor: HashMap<String, MaybeInheritingExecutor>,
+    #[serde(default)]
     pub args: HashMap<String, String>,
+    #[serde(default)]
+    pub inputs: HashMap<String, Vec<String>>,
 }
 
 pub struct MaestroConfig {
     pub executors: HashMap<String, GenericExecutor>,
     pub args: HashMap<String, String>,
+    pub inputs: HashMap<String, Vec<String>>,
 }
 
 pub static MAESTRO_CONFIG: LazyLock<MaestroConfig> = LazyLock::new(|| {
@@ -200,6 +203,7 @@ pub static MAESTRO_CONFIG: LazyLock<MaestroConfig> = LazyLock::new(|| {
 
     MaestroConfig {
         executors: canonicalized_executors,
+        inputs: config.inputs,
         args: config.args,
     }
 });

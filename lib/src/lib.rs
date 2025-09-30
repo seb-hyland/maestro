@@ -4,7 +4,13 @@ use crate::{
 };
 pub use inventory::submit as submit_request;
 pub use maestro_macros::main;
-use std::{borrow::Cow, fs, io, path::PathBuf, process::exit, sync::LazyLock};
+use std::{
+    borrow::Cow,
+    fs, io,
+    path::{Path, PathBuf},
+    process::exit,
+    sync::LazyLock,
+};
 
 pub mod config;
 pub mod executors;
@@ -53,8 +59,12 @@ impl<T, const N: usize> IntoArray<T, N> for Vec<T> {
 
 pub struct RequestedExecutor(pub &'static str, pub &'static str, pub u32, pub u32);
 inventory::collect!(RequestedExecutor);
+
 pub struct RequestedArg(pub &'static str, pub &'static str, pub u32, pub u32);
 inventory::collect!(RequestedArg);
+
+pub struct RequestedInputFiles(pub &'static str, pub &'static str, pub u32, pub u32);
+inventory::collect!(RequestedInputFiles);
 
 #[macro_export]
 macro_rules! arg {
@@ -63,6 +73,19 @@ macro_rules! arg {
             $crate::RequestedArg($arg, file!(), line!(), column!())
         };
         &$crate::config::MAESTRO_CONFIG.args[$arg]
+    }};
+}
+
+#[macro_export]
+macro_rules! inputs {
+    ($input:literal) => {{
+        $crate::submit_request! {
+            $crate::RequestedInputFiles($input, file!(), line!(), column!())
+        };
+        &$crate::config::MAESTRO_CONFIG.inputs[$input]
+            .iter()
+            .map(::std::path::Path::new)
+            .collect::<Box<[&Path]>>()[..]
     }};
 }
 
@@ -84,6 +107,21 @@ pub fn initialize() {
             exit(1)
         }
     }
+    for RequestedInputFiles(arg, file, line, col) in inventory::iter::<RequestedInputFiles> {
+        if !MAESTRO_CONFIG.inputs.contains_key(*arg) {
+            eprintln!(
+                "Input argument \"{arg}\" expected to be defined in Maestro.toml.\nLocation: {file}:{line}:{col}"
+            );
+            exit(1)
+        }
+        let files = &MAESTRO_CONFIG.inputs[*arg];
+        for file in files {
+            if !Path::new(file).exists() {
+                eprintln!("Input file \"{}\" does not exist!", file);
+                exit(1)
+            }
+        }
+    }
     let workdir = match setup_session_workdir() {
         Ok(v) => v,
         Err(e) => {
@@ -100,13 +138,13 @@ pub fn deinitialize() {
     }
 }
 
-#[macro_export]
-macro_rules! execute {
-    ($process:expr) => {{ $crate::MAESTRO_CONFIG.executor.exe($process) }};
-    ($name:literal, $process:expr) => {{
-        $crate::submit_request! {
-            $crate::RequestedExecutor($name, file!(), line!(), column!())
-        };
-        $crate::config::MAESTRO_CONFIG.executors[$name].exe($process)
-    }};
-}
+// #[macro_export]
+// macro_rules! execute {
+//     ($process:expr) => {{ $crate::MAESTRO_CONFIG.executor.exe($process) }};
+//     ($name:literal, $process:expr) => {{
+//         $crate::submit_request! {
+//             $crate::RequestedExecutor($name, file!(), line!(), column!())
+//         };
+//         $crate::config::MAESTRO_CONFIG.executors[$name].exe($process)
+//     }};
+// }

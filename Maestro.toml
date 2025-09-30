@@ -4,33 +4,25 @@ type = "Local"
 [executor.slurm_base]
 type = "Slurm"
 staging_mode = "Copy"
-cpus = 8
+cpus = 4
 memory = { type = "per_cpu", amount = 8192 }
 tasks = 1
 nodes = 1
 time = { days = 1, hours = 2 }
-account = "st-shallam-1"
+account = "my-account-id"
 mail_user = "myemail@gmail.com"
 mail_type = ["NONE", "TIME_LIMIT_50"]
 additional_options = [
     ["qos", "high"]
 ]
 
-[executor.other]
+[executor.slurm2]
 inherit = "slurm_base"
-# type = "Slurm"
 tasks = 2
 cpus = 10
-mail_type = ["ALL"]
-staging_mode = "Symlink"
-
-[executor.other2]
-inherit = "other"
-cpus = 13
-
-[executor.other3]
-inherit = "default"
-staging_mode = "Copy"
 
 [args]
-print_statement = "Hi!"
+init_msg = "Hello, world!"
+
+[inputs]
+alphafold_inputs = ["data/input1.pdb", "data/input2.pdb"]

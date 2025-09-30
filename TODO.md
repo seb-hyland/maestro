@@ -15,3 +15,4 @@
 - [] Literal OR ident as executor -> ident: var, literal: toml
 - [] Cache in home dir?
 - [] ssh
+- procinfo

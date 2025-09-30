@@ -234,12 +234,17 @@ pub fn workflow(input: TokenStream) -> TokenStream {
 
     let mut has_shebang = true;
     let process = if definition.inline {
-        let trimmed_lit = literal_value.trim();
+        let trimmed_lit = literal_value
+            .trim()
+            .lines()
+            .map(|l| l.trim())
+            .collect::<Vec<&str>>()
+            .join("\n");
         if !trimmed_lit.starts_with("#!") {
             has_shebang = false;
-            String::from("#!/bin/bash\n") + trimmed_lit
+            String::from("#!/bin/bash\n") + &trimmed_lit
         } else {
-            trimmed_lit.to_string()
+            trimmed_lit
         }
     } else {
         let path = Path::new(&literal_value);

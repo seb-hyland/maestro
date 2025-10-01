@@ -12,7 +12,7 @@ fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
     let test_fasta = Path::new("lib/examples/data/seq1.fasta");
     let test_dir = Path::new("lib/examples/data/");
     let output_path = Path::new("out.txt");
-
+    let num_cpus = "5";
     process! {
         /// This is a docstring that describes this process
         /// Maybe I talk more about what it does
@@ -24,13 +24,16 @@ fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
             test_fasta,
             test_dir
         ],
-        dependencies = ["!cat", "gromacs"],
+        args = [
+            num_cpus
+        ],
         outputs = [
             output_path
         ],
+        dependencies = ["!cat", "gromacs"],
+        inline = false,
         script = r#"
-            ls -R "$test_di"
-                > "$output_path"
+            ls -R "$test_dir" > "$output_path"
         "#
     }
 }

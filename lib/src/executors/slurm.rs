@@ -3,15 +3,9 @@ use crate::{
     executors::Executor,
     process::{CheckTime, StagingMode},
 };
+use dagger::result::{NodeError, NodeResult};
 use serde::Deserialize;
-use std::{
-    fmt::Display,
-    io::{self, Write as _},
-    path::PathBuf,
-    process::Command,
-    thread,
-    time::Duration,
-};
+use std::{fmt::Display, io::Write as _, path::PathBuf, process::Command, thread, time::Duration};
 
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -309,10 +303,11 @@ impl Display for SlurmConfig {
 }
 
 impl Executor for SlurmExecutor {
-    fn exe(&self, mut process: Process) -> io::Result<Vec<PathBuf>> {
+    fn exe(&self, mut process: Process) -> NodeResult<Vec<PathBuf>> {
         let (workdir, (log_path, mut log_handle), (launcher_path, mut launcher_handle)) =
             process.prep_script_workdir()?;
-        writeln!(launcher_handle, "{}", self.config)?;
+        writeln!(launcher_handle, "{}", self.config)
+            .map_err(|e| NodeError::msg(format!("Failed to write to launcher: {e}")))?;
 
         let staging_mode = match process.container {
             None => &self.staging_mode,
@@ -320,7 +315,8 @@ impl Executor for SlurmExecutor {
         };
         process.stage_inputs(&mut launcher_handle, &workdir, staging_mode)?;
         for module_name in &self.modules {
-            writeln!(launcher_handle, "module load {module_name}")?;
+            writeln!(launcher_handle, "module load {module_name}")
+                .map_err(|e| NodeError::msg(format!("Failed to write to launcher: {e}")))?;
         }
         Process::write_execution(launcher_handle, &process)?;
 
@@ -334,7 +330,10 @@ impl Executor for SlurmExecutor {
             ])
             .arg(launcher_path)
             .current_dir(&workdir)
-            .output()?;
+            .output()
+            .map_err(|e| {
+                NodeError::msg(format!("Failed to spawn sbatch for job submission: {e}"))
+            })?;
 
         struct SlurmJobGuard<'a> {
             job_id: Option<&'a str>,
@@ -353,18 +352,17 @@ impl Executor for SlurmExecutor {
                 .split_whitespace()
                 .last()
                 .and_then(|id| id.parse::<u32>().ok())
-                .ok_or(io::Error::new(
-                    io::ErrorKind::NotFound,
-                    format!("Failed to parse sbatch output into a job code: {stdout}"),
-                ));
-            match job_id {
+                .ok_or(NodeError::msg(format!(
+                    "Failed to parse sbatch output into a job code: {stdout}"
+                )));
+            let _ = match job_id {
                 Ok(id) => writeln!(log_handle, "{LP} Job submitted successfully! Id: {id}"),
                 Err(_) => writeln!(
                     log_handle,
                     "{LP} Failed to parse sbatch output into a job id\nstdout: {}",
                     stdout
                 ),
-            }?;
+            };
             job_id?.to_string()
         } else {
             let error_code = output
@@ -373,11 +371,11 @@ impl Executor for SlurmExecutor {
                 .map(|code| format!("Error code: {}\n", code))
                 .unwrap_or(String::new());
             let stderr = String::from_utf8_lossy(&output.stderr);
-            writeln!(
+            let _ = writeln!(
                 log_handle,
                 "{LP} Job failed to submit via sbatch!\n{error_code}stderr: {stderr}",
-            )?;
-            return Err(io::Error::other(format!(
+            );
+            return Err(NodeError::msg(format!(
                 "Job did not submit successfully. Logs at {}",
                 log_path.display()
             )));
@@ -387,13 +385,17 @@ impl Executor for SlurmExecutor {
         };
 
         let mut process_started = false;
-        let mut process_started_msg =
-            || -> io::Result<()> { writeln!(log_handle, ":: Job execution started") };
+        let mut process_started_msg = || {
+            let _ = writeln!(log_handle, ":: Job execution started");
+        };
 
         loop {
             let squeue_out = Command::new("squeue")
                 .args(["-j", job_id.as_str(), "-h", "-o", "%T"])
-                .output()?;
+                .output()
+                .map_err(|e| {
+                    NodeError::msg(format!("Failed to spawn squeue to monitor job status: {e}"))
+                })?;
 
             if squeue_out.stdout.is_empty() {
                 // Process finished
@@ -403,7 +405,7 @@ impl Executor for SlurmExecutor {
                 // Process started
                 if stdout.trim() != "PENDING" {
                     process_started = true;
-                    process_started_msg()?;
+                    process_started_msg();
                 }
             }
             thread::sleep(self.poll_rate);
@@ -412,13 +414,13 @@ impl Executor for SlurmExecutor {
         job_guard.job_id = None;
         // Process start was never read
         if !process_started {
-            process_started_msg()?;
+            process_started_msg();
         }
         let job_info = Command::new("sacct")
             .args(["-j", job_id.as_str(), "-o", "JobID,JobName,ExitCode,Elapsed,Start,End,TotalCPU,AveCPU,MaxRSS,AveRSS,MaxVMSize,AveVMSize"])
-            .output()?;
+            .output().map_err(|e| NodeError::msg(format!("Failed to spawn sacct to resolve job information: {e}")))?;
         let stdout = String::from_utf8_lossy(&job_info.stdout);
-        writeln!(log_handle, "{LP} Job information\n{}", stdout)?;
+        let _ = writeln!(log_handle, "{LP} Job information\n{}", stdout);
         let job_status = stdout
             .lines()
             .nth(2)
@@ -432,21 +434,21 @@ impl Executor for SlurmExecutor {
         match job_status {
             Some((c1, c2)) => {
                 if c1 == 0 && c2 == 0 {
-                    writeln!(log_handle, "{LP} Job completed successfully!")?;
+                    let _ = writeln!(log_handle, "{LP} Job completed successfully!");
                 } else {
-                    writeln!(
+                    let _ = writeln!(
                         log_handle,
                         "{LP} Job completed with non-zero exit code {c1}:{c2}\nstderr: .maestro.err"
-                    )?;
-                    return Err(io::Error::other(format!(
+                    );
+                    return Err(NodeError::msg(format!(
                         "Job completed with non-zero exit code. Logs at {}",
                         log_path.display()
                     )));
                 }
             }
             None => {
-                writeln!(log_handle, ":: Failed to parse job status")?;
-                return Err(io::Error::other(format!(
+                let _ = writeln!(log_handle, ":: Failed to parse job status");
+                return Err(NodeError::msg(format!(
                     "Failed to parse job status. Logs at {}",
                     log_path.display()
                 )));

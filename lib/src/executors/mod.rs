@@ -1,16 +1,15 @@
 use serde::Deserialize;
 
 use crate::{
-    Process,
+    Process, WorkflowResult,
     executors::{local::LocalExecutor, slurm::SlurmExecutor},
 };
-use std::{io, path::PathBuf};
 
 pub mod local;
 pub mod slurm;
 
 pub trait Executor {
-    fn exe(&self, script: Process) -> io::Result<Vec<PathBuf>>;
+    fn exe(&self, script: Process) -> WorkflowResult;
 }
 
 #[derive(Clone, Deserialize)]
@@ -21,7 +20,7 @@ pub enum GenericExecutor {
 }
 
 impl GenericExecutor {
-    pub fn exe(&self, process: Process) -> io::Result<Vec<PathBuf>> {
+    pub fn exe(&self, process: Process) -> WorkflowResult {
         match self {
             GenericExecutor::Local(executor) => executor.exe(process),
             GenericExecutor::Slurm(executor) => executor.exe(process),

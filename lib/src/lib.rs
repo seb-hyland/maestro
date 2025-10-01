@@ -2,11 +2,12 @@ use crate::{
     config::MAESTRO_CONFIG,
     session::{SESSION_WORKDIR, setup_session_workdir},
 };
+use dagger::result::NodeResult;
 pub use inventory::submit as submit_request;
 pub use maestro_macros::main;
 use std::{
     borrow::Cow,
-    fs, io,
+    fs,
     path::{Path, PathBuf},
     process::exit,
     sync::LazyLock,
@@ -39,7 +40,7 @@ pub enum Container {
     Apptainer(Cow<'static, str>),
 }
 
-pub type WorkflowResult = Result<Vec<PathBuf>, io::Error>;
+pub type WorkflowResult = NodeResult<Vec<PathBuf>>;
 
 pub trait IntoArray<T, const N: usize> {
     fn into_array(self) -> [T; N];

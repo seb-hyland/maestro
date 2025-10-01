@@ -140,7 +140,7 @@ impl Parse for ProcessDefinition {
             None => {
                 return Err(syn::Error::new(
                     input.span(),
-                    "Missing required `process` field!",
+                    "Missing required `script` field!",
                 ));
             }
         };
@@ -323,7 +323,7 @@ pub fn process(input: TokenStream) -> TokenStream {
     let output_pairs = into_pairs(definition.outputs).into_iter();
     let arg_pairs = definition.args.into_iter().map(|ident| {
         let lit = LitStr::new(&ident.to_string(), ident.span());
-        quote! { (#lit, #ident.to_string())}
+        quote! { (::std::borrow::Cow::Borrowed(#lit), #ident.to_string())}
     });
 
     fn generate_hashed_name() -> String {

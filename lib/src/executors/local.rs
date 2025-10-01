@@ -1,3 +1,4 @@
+use dagger::result::{NodeError, NodeResult};
 use serde::Deserialize;
 
 use crate::{
@@ -5,11 +6,7 @@ use crate::{
     executors::Executor,
     process::{CheckTime, StagingMode},
 };
-use std::{
-    io::{self, Write as _},
-    path::PathBuf,
-    process::Command,
-};
+use std::{io::Write as _, path::PathBuf, process::Command};
 
 #[derive(Clone, Copy, Deserialize, Default)]
 #[serde(deny_unknown_fields)]
@@ -26,7 +23,7 @@ impl LocalExecutor {
 }
 
 impl Executor for LocalExecutor {
-    fn exe(&self, mut process: Process) -> io::Result<Vec<PathBuf>> {
+    fn exe(&self, mut process: Process) -> NodeResult<Vec<PathBuf>> {
         let (workdir, (log_path, mut log_handle), (launcher_path, mut launcher_handle)) =
             process.prep_script_workdir()?;
         let staging_mode = match process.container {
@@ -37,31 +34,33 @@ impl Executor for LocalExecutor {
         writeln!(
             launcher_handle,
             "echo -e \":: Launching local process\\nstdout: .maestro.out\\nstderr: .maestro.err\""
-        )?;
+        )
+        .map_err(|e| NodeError::msg(format!("Failed to write to launcher: {e}")))?;
         Process::write_execution(launcher_handle, &process)?;
 
         let output = Command::new(launcher_path)
             .stdout(log_handle.try_clone()?)
             .stderr(log_handle.try_clone()?)
             .current_dir(&workdir)
-            .output()?;
+            .output()
+            .map_err(|e| NodeError::msg(format!("Failed to spawn launcher process: {e}")))?;
 
         if !output.status.success() {
-            writeln!(log_handle, "{LP} Process failed!")?;
+            let _ = writeln!(log_handle, "{LP} Process failed!");
             if let Some(exit_code) = output.status.code() {
-                writeln!(log_handle, "Exit code: {exit_code}")?;
+                let _ = writeln!(log_handle, "Exit code: {exit_code}");
             }
-            writeln!(log_handle, "stderr at .maestro.err")?;
-            return Err(io::Error::other(format!(
+            let _ = writeln!(log_handle, "stderr at .maestro.err");
+            return Err(NodeError::msg(format!(
                 "Shell process exited with non-zero exit code. Logs at {}; stderr at {}",
                 log_path.display(),
                 workdir.join(".maestro.err").display()
             )));
         } else {
-            writeln!(
+            let _ = writeln!(
                 log_handle,
                 ":: Process terminated successfully with exit code 0"
-            )?;
+            );
         }
 
         process.check_files(CheckTime::Output, Some(&workdir))?;

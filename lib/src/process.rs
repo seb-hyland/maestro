@@ -1,5 +1,5 @@
 use crate::{Container, PathArg, Process, StrArg, session::SESSION_WORKDIR};
-use dagger::result::{NodeError, NodeResult};
+use dagger_lib::result::{NodeError, NodeResult};
 use serde::Deserialize;
 use std::{
     borrow::Cow,

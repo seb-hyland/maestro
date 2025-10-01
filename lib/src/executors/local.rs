@@ -1,4 +1,4 @@
-use dagger::result::{NodeError, NodeResult};
+use dagger_lib::result::{NodeError, NodeResult};
 use serde::Deserialize;
 
 use crate::{

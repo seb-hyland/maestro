@@ -2,7 +2,7 @@ use crate::{
     config::MAESTRO_CONFIG,
     session::{SESSION_WORKDIR, setup_session_workdir},
 };
-use dagger::result::NodeResult;
+use dagger_lib::result::NodeResult;
 pub use inventory::submit as submit_request;
 pub use maestro_macros::main;
 use std::{

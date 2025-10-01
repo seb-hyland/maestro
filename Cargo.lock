@@ -173,21 +173,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "773648b94d0e5d620f64f280777445740e61fe701025087ec8b57f45c791888b"
 
 [[package]]
-name = "dagger"
-version = "0.1.9"
-source = "git+https://github.com/seb-hyland/dagger.git#c2c3f3e2d150f17b37730cbb99ebeb41c51038a9"
-dependencies = [
- "dagger-macros",
- "layout-rs",
-]
-
-[[package]]
 name = "dagger-macros"
 version = "0.1.0"
-source = "git+https://github.com/seb-hyland/dagger.git#c2c3f3e2d150f17b37730cbb99ebeb41c51038a9"
+source = "git+https://github.com/seb-hyland/dagger.git#2f311e7344328c5dc592a9dd09c865cc5924f949"
 dependencies = [
  "quote",
  "syn",
+]
+
+[[package]]
+name = "dagger_lib"
+version = "0.1.10"
+source = "git+https://github.com/seb-hyland/dagger.git#2f311e7344328c5dc592a9dd09c865cc5924f949"
+dependencies = [
+ "dagger-macros",
+ "layout-rs",
 ]
 
 [[package]]
@@ -337,7 +337,7 @@ checksum = "34080505efa8e45a4b816c349525ebe327ceaa8559756f0356cba97ef3bf7432"
 name = "maestro"
 version = "0.2.10"
 dependencies = [
- "dagger",
+ "dagger_lib",
  "inventory",
  "maestro_macros",
  "serde",

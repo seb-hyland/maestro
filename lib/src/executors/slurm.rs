@@ -3,7 +3,7 @@ use crate::{
     executors::Executor,
     process::{CheckTime, StagingMode},
 };
-use dagger::result::{NodeError, NodeResult};
+use dagger_lib::result::{NodeError, NodeResult};
 use serde::Deserialize;
 use std::{fmt::Display, io::Write as _, path::PathBuf, process::Command, thread, time::Duration};
 

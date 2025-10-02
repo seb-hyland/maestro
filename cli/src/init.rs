@@ -1,35 +1,22 @@
-use std::{env, fs, path::Path};
+use std::{env, fs, path::PathBuf};
 
 use crate::{
     StringResult, cache::prep_cache, dedent, dynamic_err, mapper, rustc_version, static_err,
 };
 
-pub(crate) fn initialize(path: Option<String>) -> StringResult {
-    let workdir = match path {
-        None => {
-            let current_dir = env::current_dir()
-                .map_err(|e| mapper(&e, "Failed to identify working directory"))?;
-            let is_empty = fs::read_dir(&current_dir)
-                .map_err(|e| mapper(&e, "Failed to read current directory contents"))?
-                .next()
-                .is_none();
-            if is_empty {
-                current_dir
-            } else {
-                return Err(static_err("Current directory is not empty!"));
-            }
+pub(crate) fn initialize(workdir: PathBuf) -> StringResult {
+    if !workdir.exists() {
+        fs::create_dir_all(&workdir)
+            .map_err(|e| mapper(&e, "Failed to create project directory"))?;
+    } else {
+        let is_empty = fs::read_dir(&workdir)
+            .map_err(|e| mapper(&e, "Failed to read current directory contents"))?
+            .next()
+            .is_none();
+        if !is_empty {
+            return Err(static_err("Directory is not empty!"));
         }
-        Some(p) => {
-            let path = Path::new(&p);
-            if path.exists() {
-                return Err(dynamic_err(format!("Path {p} is not empty!")));
-            } else {
-                fs::create_dir_all(path)
-                    .map_err(|e| mapper(&e, "Failed to create project directory"))?;
-                path.to_path_buf()
-            }
-        }
-    };
+    }
 
     {
         let cargo_toml = workdir.join("Cargo.toml");

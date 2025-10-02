@@ -62,37 +62,52 @@ fn main() {
 #[derive(Parser)]
 #[command(version, about, styles = help_style())]
 enum Cmd {
+    /// Initialize a new maestro project
     Init {
-        path: Option<String>,
+        #[arg(default_value = ".")]
+        path: PathBuf,
     },
+    /// Compile a project and package it for redistribution
     Bundle {
+        /// Compresses the bundle into an archive
         #[arg(short, long, value_enum)]
         compress: Option<Compression>,
-
+        /// Bundle for a target architecture;
+        /// defaults to the host arch
         #[arg(short, long, value_enum)]
         arch: Option<Arch>,
+        /// Container runtime for multi-arch builds;
+        /// only read if --arch is set
         #[arg(short, long, value_enum)]
         runtime: Option<ContainerRuntime>,
+        /// Arguments to pass to cargo build
         #[arg(trailing_var_arg = true)]
         cargo_args: Vec<String>,
     },
-    UpgradeCache,
+    /// Update the libmaestro cache
+    UpdateCache,
+    /// Build a project
     Build {
+        /// Arguments to pass to cargo build
         #[arg(trailing_var_arg = true)]
         cargo_args: Vec<String>,
     },
+    /// Run a binary or project
     Run {
+        /// A binary to run; when unspecified, the current project will be run
         binary: Option<PathBuf>,
-
+        /// Run detached from the current shell session
         #[arg(short, long, default_value_t = false)]
         background: bool,
-
+        /// Arguments to pass to cargo run
         cargo_args: Vec<String>,
-
+        /// Arguments to pass to the program
         #[arg(trailing_var_arg = true)]
         args: Vec<String>,
     },
+    /// Kill a running maestro process
     Kill {
+        /// The process to kill, by name or path
         target: PathBuf,
     },
 }

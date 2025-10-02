@@ -5,6 +5,7 @@ use crate::{
 use dagger_lib::result::NodeResult;
 pub use inventory::submit as submit_request;
 pub use maestro_macros::main;
+use serde::Deserialize;
 use std::{
     borrow::Cow,
     fs,
@@ -27,17 +28,17 @@ pub type StrArg = (Cow<'static, str>, String);
 #[derive(Clone)]
 pub struct Process {
     name: String,
-    container: Option<Container>,
     inputs: Vec<PathArg>,
     args: Vec<StrArg>,
     outputs: Vec<PathArg>,
     script: Cow<'static, str>,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Deserialize)]
 pub enum Container {
     Docker(Cow<'static, str>),
     Apptainer(Cow<'static, str>),
+    Podman(Cow<'static, str>),
 }
 
 pub type WorkflowResult = NodeResult<Vec<PathBuf>>;

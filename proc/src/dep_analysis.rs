@@ -17,15 +17,7 @@ pub(crate) static DEPENDENCIES_FILE: LazyLock<Mutex<File>> = LazyLock::new(|| {
 #[derive(Serialize)]
 pub(crate) struct ProcessDependencies {
     pub(crate) executor: String,
-    #[serde(flatten)]
-    pub(crate) container: Option<ContainerDependency>,
     pub(crate) deps: Vec<String>,
-}
-#[derive(Serialize)]
-#[serde(tag = "container_engine")]
-pub(crate) enum ContainerDependency {
-    Docker { container_image: String },
-    Apptainer { container_image: String },
 }
 
 pub(crate) fn analyze_depends(

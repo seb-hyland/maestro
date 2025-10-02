@@ -1,4 +1,5 @@
 use crate::{
+    Container,
     executors::{
         GenericExecutor,
         local::LocalExecutor,
@@ -29,6 +30,7 @@ pub enum MaybeInheritingExecutor {
 #[derive(Clone, Deserialize)]
 pub struct PartialExecutor {
     // Either
+    container: Option<Container>,
     staging_mode: Option<StagingMode>,
     // Slurm
     poll_rate: Option<Duration>,
@@ -76,6 +78,7 @@ impl LocalExecutor {
         } else {
             Some(LocalExecutor {
                 staging_mode: other.staging_mode.unwrap_or(self.staging_mode),
+                container: other.container.or(self.container),
             })
         }
     }
@@ -83,6 +86,7 @@ impl LocalExecutor {
 impl SlurmExecutor {
     pub(crate) fn merge(mut self, other: PartialExecutor) -> Option<SlurmExecutor> {
         Some(SlurmExecutor {
+            container: other.container.or(self.container),
             poll_rate: other.poll_rate.unwrap_or(self.poll_rate),
             staging_mode: other.staging_mode.unwrap_or(self.staging_mode),
             modules: {

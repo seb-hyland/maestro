@@ -14,7 +14,6 @@ type PathAndHandle = (PathBuf, File);
 impl Process {
     pub fn new(
         name: String,
-        container: Option<Container>,
         inputs: Vec<PathArg>,
         args: Vec<StrArg>,
         outputs: Vec<PathArg>,
@@ -26,7 +25,6 @@ impl Process {
             inputs,
             outputs,
             args,
-            container,
         }
     }
 
@@ -178,18 +176,27 @@ impl Process {
         Ok(())
     }
 
-    pub(crate) fn write_execution(mut launcher_handle: File, process: &Process) -> NodeResult<()> {
+    pub(crate) fn write_execution(
+        mut launcher_handle: File,
+        process: &Process,
+        container: &Option<Container>,
+    ) -> NodeResult<()> {
         let execution_str = "./.maestro.sh >> .maestro.out 2>> .maestro.err";
-        let image = match &process.container {
+        let image = match container {
             None => {
                 return writeln!(launcher_handle, "{execution_str}")
                     .map_err(|e| NodeError::msg(format!("Failed to write to launcher: {e}")));
             }
             Some(runtime) => match runtime {
-                Container::Docker(image) => {
+                Container::Docker(image) | Container::Podman(image) => {
+                    let binary = match runtime {
+                        Container::Docker(_) => "docker",
+                        Container::Podman(_) => "podman",
+                        _ => unreachable!(),
+                    };
                     write!(
                         launcher_handle,
-                        "docker run --rm -v .:/maestro -w /maestro "
+                        "{binary} run --rm -v $(pwd):/maestro -w /maestro "
                     )
                     .map_err(|e| NodeError::msg(format!("Failed to write to launcher: {e}")))?;
                     image

@@ -1,5 +1,5 @@
 use crate::{
-    LP, Process,
+    Container, LP, Process,
     executors::Executor,
     process::{CheckTime, StagingMode},
 };
@@ -10,6 +10,7 @@ use std::{fmt::Display, io::Write as _, path::PathBuf, process::Command, thread,
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SlurmExecutor {
+    pub(crate) container: Option<Container>,
     #[serde(default = "default_poll_rate")]
     pub(crate) poll_rate: Duration,
     #[serde(default)]
@@ -26,6 +27,7 @@ const fn default_poll_rate() -> Duration {
 impl Default for SlurmExecutor {
     fn default() -> Self {
         Self {
+            container: None,
             poll_rate: default_poll_rate(),
             staging_mode: StagingMode::Symlink,
             modules: Vec::new(),
@@ -309,7 +311,7 @@ impl Executor for SlurmExecutor {
         writeln!(launcher_handle, "{}", self.config)
             .map_err(|e| NodeError::msg(format!("Failed to write to launcher: {e}")))?;
 
-        let staging_mode = match process.container {
+        let staging_mode = match self.container {
             None => &self.staging_mode,
             Some(_) => &StagingMode::Copy,
         };
@@ -318,7 +320,7 @@ impl Executor for SlurmExecutor {
             writeln!(launcher_handle, "module load {module_name}")
                 .map_err(|e| NodeError::msg(format!("Failed to write to launcher: {e}")))?;
         }
-        Process::write_execution(launcher_handle, &process)?;
+        Process::write_execution(launcher_handle, &process, &self.container)?;
 
         let output = Command::new("sbatch")
             .args([

@@ -1,5 +1,5 @@
 use crate::dep_analysis::{
-    ContainerDependency, DEPENDENCIES_FILE, ProcessDependencies, SHELL_EXCLUDES, analyze_depends,
+    DEPENDENCIES_FILE, ProcessDependencies, SHELL_EXCLUDES, analyze_depends,
 };
 use fxhash::FxHashSet;
 use proc_macro::{
@@ -17,7 +17,7 @@ use std::{
     sync::{LazyLock, Mutex},
 };
 use syn::{
-    Expr, Ident as SynIdent, LitBool, LitStr, bracketed, parenthesized,
+    Expr, Ident as SynIdent, LitBool, LitStr, bracketed,
     parse::{self, Parse},
     parse_macro_input,
     punctuated::Punctuated,
@@ -31,7 +31,6 @@ mod dep_analysis;
 struct ProcessDefinition {
     name: Option<Expr>,
     executor: LitStr,
-    container: Option<Container>,
     inputs: Punctuated<SynIdent, Comma>,
     args: Punctuated<SynIdent, Comma>,
     outputs: Punctuated<SynIdent, Comma>,
@@ -51,9 +50,6 @@ mod kw {
     custom_keyword!(inputs);
     custom_keyword!(outputs);
     custom_keyword!(args);
-    custom_keyword!(container);
-    custom_keyword!(Docker);
-    custom_keyword!(Apptainer);
     custom_keyword!(dependencies);
     custom_keyword!(inline);
     custom_keyword!(script);
@@ -63,7 +59,6 @@ impl Parse for ProcessDefinition {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut name = None;
         let mut declared_executor = None;
-        let mut container = None;
         let mut inputs = Punctuated::new();
         let mut args = Punctuated::new();
         let mut outputs = Punctuated::new();
@@ -90,24 +85,6 @@ impl Parse for ProcessDefinition {
                 let _: kw::executor = input.parse()?;
                 let _: Eq = input.parse()?;
                 declared_executor = Some(input.parse()?);
-            } else if input.peek(kw::container) {
-                let _: kw::container = input.parse()?;
-                let _: Eq = input.parse()?;
-                container = Some(if input.peek(kw::Docker) {
-                    let _: kw::Docker = input.parse()?;
-                    let container_literal;
-                    parenthesized!(container_literal in input);
-                    let image: LitStr = container_literal.parse()?;
-                    Container::Docker(image)
-                } else {
-                    let _: kw::Apptainer = input.parse().map_err(|_| {
-                        syn::Error::new(input.span(), "Expected keyword Docker or Apptainer")
-                    })?;
-                    let container_literal;
-                    parenthesized!(container_literal in input);
-                    let image: LitStr = container_literal.parse()?;
-                    Container::Apptainer(image)
-                });
             } else if input.peek(kw::inputs) {
                 parse_list!(inputs, SynIdent::parse)
             } else if input.peek(kw::args) {
@@ -124,6 +101,8 @@ impl Parse for ProcessDefinition {
                 let _: kw::script = input.parse()?;
                 let _: Eq = input.parse()?;
                 process = Some(input.parse()?);
+            } else {
+                return Err(syn::Error::new(input.span(), "Expected valid keyword"));
             }
             if let Err(_) = input.parse::<Comma>()
                 && !input.is_empty()
@@ -157,7 +136,6 @@ impl Parse for ProcessDefinition {
         Ok(ProcessDefinition {
             name,
             executor,
-            container,
             inputs,
             args,
             outputs,
@@ -371,17 +349,6 @@ pub fn process(input: TokenStream) -> TokenStream {
     let mut root = HashMap::new();
     let dependencies = ProcessDependencies {
         executor: definition.executor.value(),
-        container: definition
-            .container
-            .as_ref()
-            .map(|container| match container {
-                Container::Docker(img) => ContainerDependency::Docker {
-                    container_image: img.value(),
-                },
-                Container::Apptainer(img) => ContainerDependency::Apptainer {
-                    container_image: img.value(),
-                },
-            }),
         deps: dependencies.into_iter().collect(),
     };
     root.insert(
@@ -431,17 +398,6 @@ pub fn process(input: TokenStream) -> TokenStream {
         }
     }
 
-    let container = match definition.container {
-        None => quote! { None },
-        Some(container) => match container {
-            Container::Docker(img) => {
-                quote! { Some(maestro::Container::Docker(::std::borrow::Cow::Borrowed(#img))) }
-            }
-            Container::Apptainer(img) => {
-                quote! { Some(maestro::Container::Apptainer(::std::borrow::Cow::Borrowed(#img))) }
-            }
-        },
-    };
     let executor = definition.executor;
     let executor_tokens = quote! {
         maestro::submit_request! {
@@ -453,7 +409,6 @@ pub fn process(input: TokenStream) -> TokenStream {
     quote! {{
         let process = maestro::Process::new(
             #name.to_string(),
-            #container,
             vec![#(#input_pairs),*],
             vec![#(#arg_pairs),*],
             vec![#(#output_pairs),*],

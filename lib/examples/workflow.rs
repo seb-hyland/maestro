@@ -1,40 +1,30 @@
-use maestro::{inputs, prelude::*};
+use maestro::prelude::*;
 
 #[maestro::main]
 fn main() {
     test_workflow(0).unwrap();
-    let _inputs = inputs!("alphafold_inputs");
-    let initialization_msg = arg!("init_msg");
-    println!("{}", initialization_msg);
 }
 
-fn test_workflow(run: i32) -> io::Result<Vec<PathBuf>> {
+fn test_workflow(run: i32) -> WorkflowResult {
     let test_fasta = Path::new("lib/examples/data/seq1.fasta");
     let test_dir = Path::new("lib/examples/data/");
     let output_path = Path::new("out.txt");
-    let num_cpus = "5";
     process! {
         /// This is a docstring that describes this process
         /// Maybe I talk more about what it does
         /// ...so the user knows how they should configure its resources
         name = format!("test_{run}"),
         executor = "default",
-        container = Docker("ubuntu:rolling"),
         inputs = [
             test_fasta,
             test_dir
         ],
-        args = [
-            num_cpus
-        ],
         outputs = [
-            output_path
+            // output_path
         ],
         dependencies = ["!cat", "gromacs"],
         inline = false,
-        script = r#"
-            ls -R "$test_dir" > "$output_path"
-        "#
+        script = "lib/examples/scripts/test.sh"
     }
 }
 

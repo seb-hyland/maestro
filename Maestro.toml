@@ -1,5 +1,6 @@
 [executor.default]
 type = "Local"
+container = { Podman = "ubuntu:rolling" }
 
 [executor.slurm_base]
 type = "Slurm"
@@ -23,6 +24,7 @@ cpus = 10
 
 [args]
 init_msg = "Hello, world!"
+process_threads = "5"
 
 [inputs]
 alphafold_inputs = ["data/input1.pdb", "data/input2.pdb"]

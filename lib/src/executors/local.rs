@@ -1,18 +1,18 @@
-use dagger_lib::result::{NodeError, NodeResult};
-use serde::Deserialize;
-
 use crate::{
-    LP, Process,
+    Container, LP, Process,
     executors::Executor,
     process::{CheckTime, StagingMode},
 };
+use dagger_lib::result::{NodeError, NodeResult};
+use serde::Deserialize;
 use std::{io::Write as _, path::PathBuf, process::Command};
 
-#[derive(Clone, Copy, Deserialize, Default)]
+#[derive(Clone, Deserialize, Default)]
 #[serde(deny_unknown_fields)]
 pub struct LocalExecutor {
     #[serde(default)]
     pub(crate) staging_mode: StagingMode,
+    pub(crate) container: Option<Container>,
 }
 
 impl LocalExecutor {
@@ -26,7 +26,7 @@ impl Executor for LocalExecutor {
     fn exe(&self, mut process: Process) -> NodeResult<Vec<PathBuf>> {
         let (workdir, (log_path, mut log_handle), (launcher_path, mut launcher_handle)) =
             process.prep_script_workdir()?;
-        let staging_mode = match process.container {
+        let staging_mode = match self.container {
             None => &self.staging_mode,
             Some(_) => &StagingMode::Copy,
         };
@@ -36,7 +36,7 @@ impl Executor for LocalExecutor {
             "echo -e \":: Launching local process\\nstdout: .maestro.out\\nstderr: .maestro.err\""
         )
         .map_err(|e| NodeError::msg(format!("Failed to write to launcher: {e}")))?;
-        Process::write_execution(launcher_handle, &process)?;
+        Process::write_execution(launcher_handle, &process, &self.container)?;
 
         let output = Command::new(launcher_path)
             .stdout(log_handle.try_clone()?)

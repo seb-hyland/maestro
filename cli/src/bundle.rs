@@ -5,6 +5,7 @@ use crate::{
 };
 use clap::ValueEnum;
 use std::{
+    env,
     ffi::OsStr,
     fs, io,
     os::unix::ffi::OsStrExt,
@@ -22,9 +23,25 @@ pub(crate) enum Compression {
     Lzma,
 }
 
+#[derive(Clone, Copy, ValueEnum)]
+pub(crate) enum Arch {
+    Linux,
+    Apple,
+    All,
+}
+
+#[derive(Clone, Copy, ValueEnum)]
+pub(crate) enum ContainerRuntime {
+    Docker,
+    Podman,
+    Apptainer,
+}
+
 pub(crate) fn bundle_project(
     cargo_args: Vec<String>,
     compression: Option<Compression>,
+    arch: Option<Arch>,
+    runtime: ContainerRuntime,
 ) -> StringResult {
     let crate_root = find_crate_root()?;
     let bundle_dir = crate_root.join("maestro_bundle");
@@ -36,21 +53,115 @@ pub(crate) fn bundle_project(
     fs::create_dir_all(&bundle_dir)
         .map_err(|e| mapper(&e, "Failed to create maestro_bundle directory"))?;
 
-    build_project(cargo_args, Vec::new(), BuildType::Build)?;
+    match arch {
+        None => {
+            build_project(cargo_args, Vec::new(), BuildType::Build)?;
 
-    let target_dir = crate_root.join("target/release");
-    for file in fs::read_dir(&target_dir)
-        .map_err(|e| mapper(&e, "Failed to read contents of build directory"))?
-        .flatten()
-    {
-        let path = file.path();
-        if path.extension() == Some(OsStr::from_bytes(b"d")) {
-            let binary_path = path.with_extension("");
-            fs::copy(
-                &binary_path,
-                bundle_dir.join(binary_path.file_name().unwrap()),
-            )
-            .map_err(|e| mapper(&e, "Failed to copy build outputs to bundle directory"))?;
+            let target_dir = crate_root.join("target/release");
+            for file in fs::read_dir(&target_dir)
+                .map_err(|e| mapper(&e, "Failed to read contents of build directory"))?
+                .flatten()
+            {
+                let path = file.path();
+                if path.extension() == Some(OsStr::from_bytes(b"d")) {
+                    let binary_path = path.with_extension("");
+                    fs::copy(
+                        &binary_path,
+                        bundle_dir.join(binary_path.file_name().unwrap()),
+                    )
+                    .map_err(|e| mapper(&e, "Failed to copy build outputs to bundle directory"))?;
+                }
+            }
+        }
+        Some(arch) => {
+            const APPLE: [&str; 2] = ["x86_64-apple-darwin", "aarch64-apple-darwin"];
+            const LINUX: [&str; 2] = ["x86_64-unknown-linux-musl", "aarch64-unknown-linux-musl"];
+
+            let runtime_cmd = match runtime {
+                ContainerRuntime::Docker => "docker",
+                ContainerRuntime::Podman => "podman",
+                ContainerRuntime::Apptainer => "apptainer",
+            };
+            let args: &[&str] = match runtime {
+                ContainerRuntime::Docker | ContainerRuntime::Podman => &[
+                    "run",
+                    "--rm",
+                    "-v",
+                    &format!("{}:/io:z", crate_root.display()),
+                    "-w",
+                    "/io",
+                ],
+                ContainerRuntime::Apptainer => &[
+                    "exec",
+                    "--writable",
+                    "--bind",
+                    &format!("{}:/io", crate_root.display()),
+                    "--workdir",
+                    "/io",
+                ],
+            };
+            let additional_flags: &[&str] = match runtime {
+                ContainerRuntime::Docker => &[
+                    "--user",
+                    &format!(
+                        "{}:{}",
+                        env::var("UID").unwrap_or("1000".to_owned()),
+                        env::var("GID").unwrap_or("1000".to_owned())
+                    ),
+                ],
+                _ => &[],
+            };
+            let image_cmd = match runtime {
+                ContainerRuntime::Docker | ContainerRuntime::Podman => "maestro_build",
+                ContainerRuntime::Apptainer => "docker://maestro_build",
+            };
+            let arches = match arch {
+                Arch::Linux => &LINUX,
+                Arch::Apple => &APPLE,
+                Arch::All => &LINUX.into_iter().chain(APPLE).collect::<Vec<&str>>()[..],
+            };
+            let copy_cmds = {
+                let mut copy_str = String::new();
+                for arch in arches {
+                    copy_str.push_str(&format!(
+                        "for f in target/{arch}/release/*; do \
+                        if [[ -f $f && -x $f ]]; then \
+                        fname=$(basename $f); \
+                        cp $f /io/maestro_bundle/${{fname}}_{arch}; \
+                        fi; \
+                        done; ",
+                    ));
+                }
+                copy_str
+            };
+            let bash_args = [
+                "bash",
+                "-c",
+                &format!(
+                    "rsync -a --exclude={{'.*','target'}} /io/ /tmp/build/ && \
+                    cd /tmp/build/ && \
+                    cargo zigbuild --release {} {} && \
+                    {copy_cmds} \
+                    cp procinfo.toml /io/procinfo.toml",
+                    arches.iter().fold(String::new(), |mut acc, arch| {
+                        acc.push_str(" --target ");
+                        acc.push_str(arch);
+                        acc
+                    }),
+                    cargo_args.join(" ")
+                ),
+            ];
+
+            let cmd = Command::new(runtime_cmd)
+                .args(args)
+                .args(additional_flags)
+                .arg(image_cmd)
+                .args(bash_args)
+                .status()
+                .map_err(|e| mapper(&e, "Failed to spawn container for multi-arch build"))?;
+            if !cmd.success() {
+                return Err(report_process_failure(cmd, "Multi-arch build container"));
+            }
         }
     }
 
@@ -63,7 +174,7 @@ pub(crate) fn bundle_project(
         crate_root.join("procinfo.toml"),
         bundle_dir.join("procinfo.toml"),
     )
-    .map_err(|e| mapper(&e, "Failed to copy dependencies.toml to bundle directory"))?;
+    .map_err(|e| mapper(&e, "Failed to copy procinfo.toml to bundle directory"))?;
 
     fn copy_recursively(src: &Path, dst: &Path) -> io::Result<()> {
         fs::create_dir(dst)?;

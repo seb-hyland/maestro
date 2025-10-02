@@ -1,7 +1,7 @@
 # This is a docstring that describes this process
 # Maybe I talk more about what it does
 # ...so the user knows how they should configure its resources
-["lib/examples/workflow.rs:27:17"]
+[":1:0"]
 executor = "default"
 deps = ["gromacs"]
 

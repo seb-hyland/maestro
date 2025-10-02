@@ -1,6 +1,6 @@
 use crate::{
     build::{BuildType, build_project},
-    bundle::{Compression, bundle_project},
+    bundle::{Arch, Compression, ContainerRuntime, bundle_project},
     cache::prep_cache,
     init::initialize,
     kill::kill_process,
@@ -36,8 +36,15 @@ fn main() {
         Cmd::Bundle {
             cargo_args,
             compress,
-        } => bundle_project(cargo_args, compress),
-        Cmd::UpgradeCache => prep_cache().map(|_| {}),
+            arch,
+            runtime,
+        } => bundle_project(
+            cargo_args,
+            compress,
+            arch,
+            runtime.unwrap_or(ContainerRuntime::Docker),
+        ),
+        Cmd::UpdateCache => prep_cache().map(|_| {}),
         Cmd::Build { cargo_args } => build_project(cargo_args, Vec::new(), BuildType::Build),
         Cmd::Run {
             binary,
@@ -62,6 +69,10 @@ enum Cmd {
         #[arg(short, long, value_enum)]
         compress: Option<Compression>,
 
+        #[arg(short, long, value_enum)]
+        arch: Option<Arch>,
+        #[arg(short, long, value_enum)]
+        runtime: Option<ContainerRuntime>,
         #[arg(trailing_var_arg = true)]
         cargo_args: Vec<String>,
     },

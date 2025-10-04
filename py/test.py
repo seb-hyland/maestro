@@ -1,31 +1,25 @@
 from maestro import *
 
-inputs = {
-    "test_fasta": "../lib/examples/data/seq1.fasta",
-    "test_dir": "../lib/examples/data/"
+proc_inputs = {
+    "test_fasta": "data/seq1.fasta",
+    "test_dir": "data/",
 }
-outputs = {
+proc_outputs = {
     "output_path": "out.txt"
 }
-p = Process(
-    name = "my_process",
-    container = None,
+proc = Process(
+    name = "my_proc",
+    inputs = proc_inputs,
+    outputs = proc_outputs,
+    args = {},
     script =
     """
     #!/bin/bash
     cat "$test_fasta"
-    cat "$test_dir"/seq2.fasta
     tree "$test_dir" > "$output_path"
-    """,
-    inputs = inputs,
-    outputs = outputs,
-    args = {}
+    """
 )
 
-executor = SlurmExecutor()
-executor.
-executor.with_staging_mode(StagingMode.Copy)
-*outputs, output_dir = executor.exe(p)
-
-
-print(outputs)
+proc_executor = executor("default")
+output_files = proc_executor.exe(proc)
+print(output_files)

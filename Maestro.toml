@@ -2,13 +2,21 @@
 type = "Local"
 container = { Podman = "ubuntu:rolling" }
 
+[executor.slurm2]
+inherit = "slurm_base"
+tasks = 2
+cpus = 10
+
 [executor.slurm_base]
 type = "Slurm"
 staging_mode = "Copy"
+container = { Podman = "ubuntu:rolling" }
 cpus = 4
 memory = { type = "per_cpu", amount = 8192 }
+gpus = 2
 tasks = 1
 nodes = 1
+partition = "skylake"
 time = { days = 1, hours = 2 }
 account = "my-account-id"
 mail_user = "myemail@gmail.com"
@@ -17,10 +25,6 @@ additional_options = [
     ["qos", "high"]
 ]
 
-[executor.slurm2]
-inherit = "slurm_base"
-tasks = 2
-cpus = 10
 
 [args]
 init_msg = "Hello, world!"

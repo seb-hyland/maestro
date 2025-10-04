@@ -14,7 +14,7 @@ fn test_workflow(run: i32) -> WorkflowResult {
         /// Maybe I talk more about what it does
         /// ...so the user knows how they should configure its resources
         name = format!("test_{run}"),
-        executor = "default",
+        executor = "slurm",
         inputs = [
             test_fasta,
             test_dir

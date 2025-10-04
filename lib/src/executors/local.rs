@@ -7,6 +7,7 @@ use dagger_lib::result::{NodeError, NodeResult};
 use serde::Deserialize;
 use std::{io::Write as _, path::PathBuf, process::Command};
 
+/// An executor that directly executes processes
 #[derive(Clone, Deserialize, Default)]
 #[serde(deny_unknown_fields)]
 pub struct LocalExecutor {

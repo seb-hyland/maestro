@@ -1,4 +1,4 @@
-use ::maestro::{self as RustMaestro};
+use ::maestro::{self as RustMaestro, config::MAESTRO_CONFIG};
 use pyo3::{
     exceptions::{PyRuntimeError, PyValueError},
     prelude::*,
@@ -7,7 +7,8 @@ use pyo3::{
 use pyo3_stub_gen::{
     define_stub_info_gatherer,
     derive::{
-        gen_stub_pyclass, gen_stub_pyclass_complex_enum, gen_stub_pyclass_enum, gen_stub_pymethods,
+        gen_stub_pyclass, gen_stub_pyclass_complex_enum, gen_stub_pyclass_enum,
+        gen_stub_pyfunction, gen_stub_pymethods,
     },
 };
 use std::{borrow::Cow, collections::HashMap, path::PathBuf, time::Duration};
@@ -19,7 +20,7 @@ use RustMaestro::{
             MemoryConfig as RustMemoryConfig, SlurmConfig as RustSlurmConfig,
             SlurmExecutor as RustSlurmExecutor, SlurmTime as RustSlurmTime,
         },
-        Executor,
+        Executor, GenericExecutor as RustGenericExecutor,
     },
     prelude::NodeError as RustNodeError,
     process::StagingMode as RustStagingMode,
@@ -28,7 +29,7 @@ use RustMaestro::{
 
 /// The maestro module
 #[pymodule]
-fn maestro(m: &Bound<'_, PyModule>) -> PyResult<()> {
+pub fn maestro(m: &Bound<'_, PyModule>) -> PyResult<()> {
     ::maestro::initialize();
 
     m.add_class::<Process>()?;
@@ -54,16 +55,45 @@ fn maestro(m: &Bound<'_, PyModule>) -> PyResult<()> {
 }
 define_stub_info_gatherer!(stub_info);
 
-/// Process struct
 #[pyclass]
 #[gen_stub_pyclass]
 #[derive(Clone)]
-struct Process(RustProcess);
+pub struct Process(RustProcess);
+
+#[pyclass]
+#[gen_stub_pyclass]
+pub struct GenericExecutor(RustGenericExecutor);
+#[pymethods]
+#[gen_stub_pymethods]
+impl GenericExecutor {
+    pub fn exe(&self, process: &Process) -> Result<Vec<PathBuf>, NodeError> {
+        self.0.exe(process.0.clone()).map_err(NodeError)
+    }
+}
+
+#[pyfunction]
+#[gen_stub_pyfunction]
+pub fn executor(name: String) -> GenericExecutor {
+    GenericExecutor(MAESTRO_CONFIG.executors[&name].clone())
+}
+#[pyfunction]
+#[gen_stub_pyfunction]
+pub fn arg(name: String) -> String {
+    MAESTRO_CONFIG.args[&name].clone()
+}
+#[pyfunction]
+#[gen_stub_pyfunction]
+pub fn inputs(name: String) -> Vec<PathBuf> {
+    MAESTRO_CONFIG.inputs[&name]
+        .iter()
+        .map(PathBuf::from)
+        .collect()
+}
 
 #[pyclass]
 #[gen_stub_pyclass_complex_enum]
 #[derive(Clone)]
-enum Container {
+pub enum Container {
     Docker(String),
     Apptainer(String),
 }
@@ -79,9 +109,8 @@ impl From<Container> for RustContainer {
 #[pymethods]
 #[gen_stub_pymethods]
 impl Process {
-    /// Constructor
     #[new]
-    fn __init__(
+    pub fn __init__(
         name: String,
         script: String,
         inputs: HashMap<String, PathBuf>,
@@ -110,26 +139,26 @@ impl Process {
     }
 }
 
-/// Staging mode
 #[pyclass]
 #[gen_stub_pyclass_enum]
 #[derive(Clone, Copy)]
-enum StagingMode {
+pub enum StagingMode {
     Copy,
     Symlink,
-    None,
+    NA,
 }
 impl From<StagingMode> for RustStagingMode {
     fn from(value: StagingMode) -> Self {
         match value {
             StagingMode::Copy => Self::Copy,
             StagingMode::Symlink => Self::Symlink,
-            StagingMode::None => Self::None,
+            StagingMode::NA => Self::None,
         }
     }
 }
 
-struct NodeError(RustNodeError);
+/// An error returned by failed processes
+pub struct NodeError(RustNodeError);
 impl From<NodeError> for PyErr {
     fn from(value: NodeError) -> Self {
         PyRuntimeError::new_err(format!("{:?}", value.0))
@@ -138,56 +167,56 @@ impl From<NodeError> for PyErr {
 
 #[pyclass]
 #[gen_stub_pyclass]
-struct LocalExecutor(RustLocalExecutor);
+pub struct LocalExecutor(RustLocalExecutor);
 
 #[pymethods]
 #[gen_stub_pymethods]
 impl LocalExecutor {
     #[new]
-    fn __init__() -> LocalExecutor {
+    pub fn __init__() -> LocalExecutor {
         LocalExecutor(RustLocalExecutor::default())
     }
-    fn with_container(&mut self, container: Container) {
+    pub fn with_container(&mut self, container: Container) {
         self.0 = self.0.clone().with_container(container.into());
     }
-    fn with_staging_mode(&mut self, mode: StagingMode) {
+    pub fn with_staging_mode(&mut self, mode: StagingMode) {
         self.0 = self.0.clone().with_staging_mode(mode.into());
     }
-    fn exe(&self, process: &Process) -> Result<Vec<PathBuf>, NodeError> {
+    pub fn exe(&self, process: &Process) -> Result<Vec<PathBuf>, NodeError> {
         self.0.exe(process.0.clone()).map_err(NodeError)
     }
 }
 
 #[pyclass]
 #[gen_stub_pyclass]
-struct SlurmExecutor(RustSlurmExecutor);
+pub struct SlurmExecutor(RustSlurmExecutor);
 
 #[pymethods]
 #[gen_stub_pymethods]
 impl SlurmExecutor {
     #[new]
-    fn __init__() -> SlurmExecutor {
+    pub fn __init__() -> SlurmExecutor {
         SlurmExecutor(RustSlurmExecutor::default())
     }
-    fn with_container(&mut self, container: Container) {
+    pub fn with_container(&mut self, container: Container) {
         self.0 = self.0.clone().with_container(container.into());
     }
-    fn with_poll_rate(&mut self, rate: Duration) {
+    pub fn with_poll_rate(&mut self, rate: Duration) {
         self.0 = self.0.clone().with_poll_rate(rate);
     }
-    fn with_staging_mode(&mut self, mode: StagingMode) {
+    pub fn with_staging_mode(&mut self, mode: StagingMode) {
         self.0 = self.0.clone().with_staging_mode(mode.into());
     }
-    fn with_module(&mut self, module: String) {
+    pub fn with_module(&mut self, module: String) {
         self.0 = self.0.clone().with_module(module);
     }
-    fn with_modules(&mut self, modules: Vec<String>) {
+    pub fn with_modules(&mut self, modules: Vec<String>) {
         self.0 = self.0.clone().with_modules(modules);
     }
-    fn with_config(&mut self, config: SlurmConfig) {
+    pub fn with_config(&mut self, config: SlurmConfig) {
         self.0 = self.0.clone().with_config(config.into())
     }
-    fn exe(&self, process: &Process) -> Result<Vec<PathBuf>, NodeError> {
+    pub fn exe(&self, process: &Process) -> Result<Vec<PathBuf>, NodeError> {
         self.0.exe(process.0.clone()).map_err(NodeError)
     }
 }
@@ -195,7 +224,7 @@ impl SlurmExecutor {
 #[pyclass]
 #[gen_stub_pyclass]
 #[derive(Clone, Default)]
-struct SlurmConfig {
+pub struct SlurmConfig {
     cpus: Option<u64>,
     memory: Option<MemoryConfig>,
     gpus: Option<u64>,
@@ -213,40 +242,40 @@ struct SlurmConfig {
 #[gen_stub_pymethods]
 impl SlurmConfig {
     #[new]
-    fn __init__() -> Self {
+    pub fn __init__() -> Self {
         Self::default()
     }
-    fn with_cpus(&mut self, cpus: u64) {
+    pub fn with_cpus(&mut self, cpus: u64) {
         self.cpus = Some(cpus)
     }
-    fn with_memory(&mut self, memory: MemoryConfig) {
+    pub fn with_memory(&mut self, memory: MemoryConfig) {
         self.memory = Some(memory)
     }
-    fn with_gpus(&mut self, gpus: u64) {
+    pub fn with_gpus(&mut self, gpus: u64) {
         self.gpus = Some(gpus)
     }
-    fn with_tasks(&mut self, tasks: u64) {
+    pub fn with_tasks(&mut self, tasks: u64) {
         self.tasks = Some(tasks)
     }
-    fn with_nodes(&mut self, nodes: u64) {
+    pub fn with_nodes(&mut self, nodes: u64) {
         self.nodes = Some(nodes);
     }
-    fn with_partition(&mut self, partition: String) {
+    pub fn with_partition(&mut self, partition: String) {
         self.partition = Some(partition);
     }
-    fn with_time(&mut self, time: Duration) {
+    pub fn with_time(&mut self, time: Duration) {
         self.time = Some(time);
     }
-    fn with_account(&mut self, account: String) {
+    pub fn with_account(&mut self, account: String) {
         self.account = Some(account);
     }
-    fn with_mail_user(&mut self, mail_user: String) {
+    pub fn with_mail_user(&mut self, mail_user: String) {
         self.mail_user = Some(mail_user);
     }
-    fn with_mail_type(&mut self, mail_type: Vec<MailType>) {
+    pub fn with_mail_type(&mut self, mail_type: Vec<MailType>) {
         self.mail_type = Some(mail_type);
     }
-    fn with_additional_options(&mut self, additional_options: Vec<(String, String)>) {
+    pub fn with_additional_options(&mut self, additional_options: Vec<(String, String)>) {
         self.additional_options = additional_options;
     }
 }
@@ -283,7 +312,7 @@ impl From<SlurmConfig> for RustSlurmConfig {
 #[pyclass]
 #[gen_stub_pyclass_complex_enum]
 #[derive(Clone, Copy)]
-enum MemoryConfig {
+pub enum MemoryConfig {
     PerNode(Memory),
     PerCpu(Memory),
 }
@@ -291,7 +320,7 @@ enum MemoryConfig {
 #[gen_stub_pyclass_complex_enum]
 #[allow(non_camel_case_types)]
 #[derive(Clone, Copy)]
-enum Memory {
+pub enum Memory {
     gb(u64),
     mb(u64),
 }
@@ -313,8 +342,8 @@ impl From<MemoryConfig> for RustMemoryConfig {
 #[pyclass]
 #[gen_stub_pyclass_enum]
 #[derive(Clone, Copy)]
-enum MailType {
-    None,
+pub enum MailType {
+    NA,
     All,
     Begin,
     End,
@@ -331,7 +360,7 @@ enum MailType {
 impl From<MailType> for RustMailType {
     fn from(value: MailType) -> Self {
         match value {
-            MailType::None => Self::None,
+            MailType::NA => Self::None,
             MailType::All => Self::All,
             MailType::Begin => Self::Begin,
             MailType::End => Self::End,

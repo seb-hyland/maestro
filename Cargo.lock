@@ -347,7 +347,7 @@ dependencies = [
 
 [[package]]
 name = "maestro-cli"
-version = "0.1.4"
+version = "0.1.8"
 dependencies = [
  "clap",
  "session_gen",

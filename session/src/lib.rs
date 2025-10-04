@@ -1,17 +1,19 @@
 use rand::seq::IndexedRandom as _;
 
+/// Generates a random ID for the current maestro session.
+/// IDs are of form [`ADJECTIVE`]-[`ANIMAL`]
 pub fn generate_session_id() -> String {
     let mut rng = rand::rng();
-    let selected_adj = ADJECTIVES
+    let selected_adj = ADJECTIVE
         .choose(&mut rng)
         .expect("ADJECTIVES should not be empty for session ID selection!");
-    let selected_animal = ANIMALS
+    let selected_animal = ANIMAL
         .choose(&mut rng)
         .expect("ANIMALS should not be empty for session ID selection!");
     format!("{}-{}", selected_adj, selected_animal)
 }
 
-const ADJECTIVES: [&str; 100] = [
+pub const ADJECTIVE: [&str; 100] = [
     "joyful",
     "grateful",
     "thrilled",
@@ -114,7 +116,7 @@ const ADJECTIVES: [&str; 100] = [
     "annoyed",
 ];
 
-const ANIMALS: [&str; 100] = [
+pub const ANIMAL: [&str; 100] = [
     "dog",
     "cow",
     "cat",

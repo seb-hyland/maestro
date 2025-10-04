@@ -7,6 +7,7 @@ use dagger_lib::result::{NodeError, NodeResult};
 use serde::Deserialize;
 use std::{fmt::Display, io::Write as _, path::PathBuf, process::Command, thread, time::Duration};
 
+/// An executor that schedules processes via Slurm
 #[derive(Clone, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct SlurmExecutor {
@@ -71,6 +72,7 @@ impl SlurmExecutor {
     }
 }
 
+/// Slurm configuration options
 #[derive(Default, Clone, Deserialize)]
 pub struct SlurmConfig {
     pub cpus: Option<u64>,
@@ -87,6 +89,7 @@ pub struct SlurmConfig {
     pub additional_options: Vec<(String, String)>,
 }
 
+/// Slurm time limit
 #[derive(Clone, Copy, Default, Deserialize)]
 #[serde(default, deny_unknown_fields)]
 pub struct SlurmTime {
@@ -96,6 +99,14 @@ pub struct SlurmTime {
     secs: u8,
 }
 impl SlurmTime {
+    /// Initializes a new SlurmTime instance
+    ///
+    /// # Requires
+    /// - mins < 60
+    /// - secs < 60
+    ///
+    /// If these conditions are satisfied, `Some(Self)` will be returned.
+    /// Otherwise, `None` will be returned
     pub fn new(days: u16, hours: u16, mins: u8, secs: u8) -> Option<Self> {
         if mins < 60 && secs < 60 {
             Some(Self {
@@ -135,6 +146,7 @@ impl Display for SlurmTime {
     }
 }
 
+/// Defines a mail notification type for Slurm
 #[derive(Clone, Copy, Deserialize)]
 #[serde(rename_all = "SCREAMING_SNAKE_CASE")]
 pub enum MailType {
@@ -175,6 +187,7 @@ impl Display for MailType {
         write!(f, "{flag}")
     }
 }
+/// A list of Slurm mail notification types
 #[derive(Clone, Deserialize)]
 pub struct MailTypeList(pub Vec<MailType>);
 impl Display for MailTypeList {
@@ -190,6 +203,7 @@ impl Display for MailTypeList {
     }
 }
 
+/// Defines a memory configuration for Slurm
 #[derive(Clone, Copy, Deserialize)]
 #[serde(tag = "type", content = "amount", rename_all = "snake_case")]
 pub enum MemoryConfig {
@@ -205,6 +219,7 @@ impl Display for MemoryConfig {
     }
 }
 
+/// Slurm memory resource request
 #[derive(Clone, Copy, Deserialize)]
 pub struct Memory(u64);
 impl Memory {

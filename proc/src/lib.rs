@@ -147,7 +147,7 @@ impl Parse for ProcessDefinition {
 }
 
 /// A maestro process definition
-/// ## Example
+/// # Example
 /// ```rust
 /// process! {
 ///     /// A docstring
@@ -423,6 +423,17 @@ static GENERATED_HASHES: LazyLock<Mutex<FxHashSet<String>>> =
     LazyLock::new(|| Mutex::new(FxHashSet::default()));
 
 #[proc_macro_attribute]
+/// An attribute macro to inject session initialization/deinitialization actions
+///
+/// Should be attached to `main`
+///
+/// # Example
+/// ```rust
+/// #[maestro::main]
+/// fn main() {
+///     // ...
+/// }
+/// ```
 pub fn main(attrs: TokenStream, body: TokenStream) -> TokenStream {
     if !attrs.is_empty() {
         return construct_error_stream(

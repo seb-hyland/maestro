@@ -14,17 +14,24 @@ use std::{
     sync::LazyLock,
 };
 
+/// Maestro.toml workflow configuration
 pub mod config;
+/// Execution environments
 pub mod executors;
+/// Import prelude
 pub mod prelude;
+/// Process primitives (executor-agnostic)
 pub mod process;
 mod session;
 
 const LP: &str = "\x1b[0;34m::\x1b[0m";
 
+/// A path that may be allocated or borrowed
 pub type PathArg = (Cow<'static, str>, PathBuf);
+/// A string that may be allocated or borrowed
 pub type StrArg = (Cow<'static, str>, String);
 
+/// Process definition
 #[derive(Clone)]
 pub struct Process {
     name: String,
@@ -34,6 +41,7 @@ pub struct Process {
     script: Cow<'static, str>,
 }
 
+/// Defines a container environment for execution
 #[derive(Clone, Deserialize)]
 pub enum Container {
     Docker(Cow<'static, str>),
@@ -41,8 +49,10 @@ pub enum Container {
     Podman(Cow<'static, str>),
 }
 
+/// The output type of process execution
 pub type WorkflowResult = NodeResult<Vec<PathBuf>>;
 
+/// An ergonomic API to destructure process outputs
 pub trait IntoArray<T, const N: usize> {
     fn into_array(self) -> [T; N];
 }
@@ -59,16 +69,26 @@ impl<T, const N: usize> IntoArray<T, N> for Vec<T> {
     }
 }
 
+#[doc(hidden)]
 pub struct RequestedExecutor(pub &'static str, pub &'static str, pub u32, pub u32);
 inventory::collect!(RequestedExecutor);
 
+#[doc(hidden)]
 pub struct RequestedArg(pub &'static str, pub &'static str, pub u32, pub u32);
 inventory::collect!(RequestedArg);
 
+#[doc(hidden)]
 pub struct RequestedInputFiles(pub &'static str, pub &'static str, pub u32, pub u32);
 inventory::collect!(RequestedInputFiles);
 
 #[macro_export]
+/// Gets the value of an argument in Maestro.toml, ensuring at program startup that it is defined
+///
+/// Outputs a `&'static str`
+/// # Example
+/// ```rust
+/// let init_msg: &str = arg!("init_msg");
+/// ```
 macro_rules! arg {
     ($arg:literal) => {{
         $crate::submit_request! {
@@ -79,6 +99,13 @@ macro_rules! arg {
 }
 
 #[macro_export]
+/// Gets the value of a set of inputs in Maestro.toml, ensuring at program startup that it is defined
+///
+/// Outputs a `&[&'static Path]`
+/// # Example
+/// ```rust
+/// let process_inputs: &[&'static Path] = inputs!("input_files");
+/// ```
 macro_rules! inputs {
     ($input:literal) => {{
         $crate::submit_request! {
@@ -91,6 +118,7 @@ macro_rules! inputs {
     }};
 }
 
+#[doc(hidden)]
 pub fn initialize() {
     LazyLock::force(&MAESTRO_CONFIG);
     for RequestedExecutor(name, file, line, col) in inventory::iter::<RequestedExecutor> {
@@ -134,6 +162,7 @@ pub fn initialize() {
     let _ = session::SESSION_WORKDIR.set(workdir);
 }
 
+#[doc(hidden)]
 pub fn deinitialize() {
     if let Some(dir) = SESSION_WORKDIR.get() {
         let _ = fs::remove_file(dir.join(".maestro.active"));

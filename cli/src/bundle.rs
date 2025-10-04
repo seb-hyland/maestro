@@ -14,7 +14,8 @@ use std::{
 };
 
 #[derive(Clone, Copy, ValueEnum)]
-pub(crate) enum Compression {
+/// Compression options
+pub enum Compression {
     Zip,
     Gzip,
     Xz,
@@ -24,14 +25,16 @@ pub(crate) enum Compression {
 }
 
 #[derive(Clone, Copy, ValueEnum)]
-pub(crate) enum Arch {
+/// Architecture build targets
+pub enum Arch {
     Linux,
     Apple,
     All,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
-pub(crate) enum ContainerRuntime {
+/// Container runtimes to use for multiarch builds
+pub enum ContainerRuntime {
     Docker,
     Podman,
     Apptainer,

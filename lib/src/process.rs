@@ -12,6 +12,7 @@ use std::{
 
 type PathAndHandle = (PathBuf, File);
 impl Process {
+    /// Constructs a new process
     pub fn new(
         name: String,
         inputs: Vec<PathArg>,

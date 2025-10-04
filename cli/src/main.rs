@@ -61,7 +61,8 @@ fn main() {
 
 #[derive(Parser)]
 #[command(version, about, styles = help_style())]
-enum Cmd {
+/// Subcommands in the maestro CLI
+pub enum Cmd {
     /// Initialize a new maestro project
     Init {
         #[arg(default_value = ".")]
@@ -84,8 +85,6 @@ enum Cmd {
         #[arg(trailing_var_arg = true)]
         cargo_args: Vec<String>,
     },
-    /// Update the libmaestro cache
-    UpdateCache,
     /// Build a project
     Build {
         /// Arguments to pass to cargo build
@@ -110,8 +109,11 @@ enum Cmd {
         /// The process to kill, by name or path
         target: PathBuf,
     },
+    /// Update the libmaestro cache
+    UpdateCache,
 }
 
+#[doc(hidden)]
 fn help_style() -> Styles {
     Styles::default()
         .header(bold_with_colour(AnsiColor::BrightGreen))
@@ -121,23 +123,29 @@ fn help_style() -> Styles {
         .error(bold_with_colour(AnsiColor::BrightRed))
         .invalid(bold_with_colour(AnsiColor::BrightRed))
 }
+#[doc(hidden)]
 fn get_colour(colour: AnsiColor) -> Option<Color> {
     Some(Color::Ansi(colour))
 }
+#[doc(hidden)]
 fn bold_with_colour(colour: AnsiColor) -> Style {
     Style::new().bold().fg_color(get_colour(colour))
 }
 
+/// Constructs a [`StringErr`] from an [`Error`] and a static [`&str`] description
 fn mapper(e: &dyn Error, msg: &'static str) -> StringErr {
     Cow::Owned(format!("{msg}: {e}"))
 }
+/// Constructs a [`StringErr`] from a static [`&str`]
 fn static_err(msg: &'static str) -> StringErr {
     Cow::Borrowed(msg)
 }
+/// Constructs a [`StringErr`] from a [`String`]
 fn dynamic_err(msg: String) -> StringErr {
     Cow::Owned(msg)
 }
 
+/// Determines the crate root by traversing parent directories
 fn find_crate_root() -> Result<PathBuf, StringErr> {
     let working_directory =
         env::current_dir().map_err(|e| mapper(&e, "Failed to identify working directory"))?;
@@ -155,6 +163,7 @@ fn find_crate_root() -> Result<PathBuf, StringErr> {
     Ok(current_dir)
 }
 
+/// Converts failure of a [`std::process::Command`] to a [`StringErr`]
 fn report_process_failure(status: ExitStatus, process: &'static str) -> StringErr {
     Cow::Owned(match status.code() {
         Some(code) => format!("{process} failed with exit code {code}"),
@@ -162,6 +171,9 @@ fn report_process_failure(status: ExitStatus, process: &'static str) -> StringEr
     })
 }
 
+/// Trims trailing whitespace on all lines of a string
+///
+/// Particularly useful for string literals
 fn dedent<S: ToString>(s: S) -> String {
     let str = s.to_string();
     str.trim()

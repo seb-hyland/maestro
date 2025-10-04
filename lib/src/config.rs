@@ -18,6 +18,7 @@ use std::{
 
 #[derive(Deserialize)]
 #[serde(untagged)]
+#[doc(hidden)]
 pub enum MaybeInheritingExecutor {
     Inherit {
         inherit: String,
@@ -28,6 +29,7 @@ pub enum MaybeInheritingExecutor {
 }
 
 #[derive(Clone, Deserialize)]
+#[doc(hidden)]
 pub struct PartialExecutor {
     // Either
     container: Option<Container>,
@@ -119,6 +121,7 @@ impl SlurmExecutor {
 
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+#[doc(hidden)]
 pub struct TomlConfig {
     pub executor: HashMap<String, MaybeInheritingExecutor>,
     #[serde(default)]
@@ -127,12 +130,14 @@ pub struct TomlConfig {
     pub inputs: HashMap<String, Vec<String>>,
 }
 
+/// Represents a Maestro.toml configuration deserialized into a Rust struct
 pub struct MaestroConfig {
     pub executors: HashMap<String, GenericExecutor>,
     pub args: HashMap<String, String>,
     pub inputs: HashMap<String, Vec<String>>,
 }
 
+/// A global variable which holds the deserialized Maestro.toml configuration
 pub static MAESTRO_CONFIG: LazyLock<MaestroConfig> = LazyLock::new(|| {
     let config_file = env::var("MAESTRO_CONFIG").unwrap_or("Maestro.toml".to_string());
     let file_contents = fs::read_to_string(config_file).unwrap_or_else(|e| {

@@ -38,10 +38,6 @@ struct ProcessDefinition {
     inline: bool,
     literal: LitStr,
 }
-enum Container {
-    Docker(LitStr),
-    Apptainer(LitStr),
-}
 
 mod kw {
     use syn::custom_keyword;

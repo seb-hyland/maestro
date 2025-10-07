@@ -1,4 +1,4 @@
-[executor]
+[executor.default]
 type = "Local"
 staging_mode = "Copy"
 

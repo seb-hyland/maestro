@@ -1,8 +1,7 @@
-use std::{env, fs, path::PathBuf};
-
 use crate::{
     StringResult, cache::prep_cache, dedent, dynamic_err, mapper, rustc_version, static_err,
 };
+use std::{env, fs, path::PathBuf};
 
 pub(crate) fn initialize(workdir: PathBuf) -> StringResult {
     if !workdir.exists() {

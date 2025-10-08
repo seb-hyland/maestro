@@ -1,7 +1,5 @@
-<p align="center">
-  <img src="https://static.igem.wiki/teams/5784/icons/maestro.svg" alt="Maestro Logo" height="100">
-</p>
 <div align="center">
+    <img src="https://static.igem.wiki/teams/5784/icons/maestro.svg" alt="Maestro Logo" height="100">
     <h1><code>maestro</code></h1>
 
 [<img alt="github" src="https://img.shields.io/badge/UBC--iGEM-maestro-8da0cb?style=for-the-badge&labelColor=555555&logo=github" height="22">](https://gitlab.igem.org/2025/software-tools/ubc-vancouver/-/tree/main/maestro?ref_type=heads)
